@@ -69,7 +69,8 @@
                 </button>
               </div>
             </div>
-            <div class="table-cards">
+            <div v-if="items.length === 0" class="group-empty">No tables in this folder yet. Use the gear to add some.</div>
+            <div v-else class="table-cards">
               <div
                 v-for="t in items"
                 :key="t.name"
@@ -362,7 +363,7 @@ const filteredData = computed(() => {
 // ── Grouped display ──
 const groupedData = computed<Record<string, TableMeta[]>>(() => {
   const data = filteredData.value
-  if (!data.length) return {}
+  if (!data.length && activeTab.value !== 'All') return {}
 
   if (activeTab.value === 'Recent') {
     return { 'Recently Accessed': data }
@@ -384,10 +385,8 @@ const groupedData = computed<Record<string, TableMeta[]>>(() => {
   for (const g of sortedGroupsList(groups.value)) {
     const groupTableNames = new Set(g.tables)
     const groupTables = sortedTables(data.filter(t => groupTableNames.has(t.name)))
-    if (groupTables.length > 0) {
-      result[g.name] = groupTables
-      groupTables.forEach(t => groupedNames.add(t.name))
-    }
+    result[g.name] = groupTables
+    groupTables.forEach(t => groupedNames.add(t.name))
   }
 
   const ungrouped = sortedTables(data.filter(t => !groupedNames.has(t.name)))
@@ -816,6 +815,12 @@ watch(showRenameTable, (v) => {
   background: #f1f1ef;
   padding: 2px 10px;
   border-radius: 12px;
+}
+
+.group-empty {
+  font-size: 13px;
+  color: #9b9a97;
+  padding: 8px 2px 4px;
 }
 
 .group-settings-btn {
