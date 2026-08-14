@@ -20,7 +20,12 @@ workspace.get('/tree', async (c) => {
   await backfillTableFolderParents(c.env.DB, c.get('teamId'))
   const nodes = await listWorkspaceNodes(c.env.DB, c.get('teamId'))
   const allowedNoteIds = await getAccessibleNoteIds(c.env.DB, c.get('teamId'), c.get('allowedNoteRootIds'))
-  const visible = filterVisibleNodes(nodes, c.get('allowedTables') ?? null, allowedNoteIds)
+  const visible = filterVisibleNodes(
+    nodes,
+    c.get('allowedTables') ?? null,
+    allowedNoteIds,
+    c.get('allowedGroupIds') ?? null,
+  )
   return c.json({ data: visible })
 })
 

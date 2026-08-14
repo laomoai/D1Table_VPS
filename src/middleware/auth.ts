@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { sha256 } from '../utils/crypto'
 import { verifySession } from '../utils/session'
+import { getFolderScopedAccess } from '../utils/workspace'
 
 /**
  * API Key / Session 认证中间件
@@ -88,35 +89,16 @@ export const authMiddleware: MiddlewareHandler<{
     c.set('teamId', row.team_id)
   }
 
-  // scope=groups → 查询允许访问的表列表和组 ID
+  // scope=groups → 该组/文件夹下的表和笔记（含子文件夹）
   if (row.scope === 'groups') {
-    const [allowed, groupIds, noteRoots] = await Promise.all([
-      c.env.DB.prepare(
-        `SELECT DISTINCT gt.table_name
-         FROM _api_key_groups akg
-         JOIN _group_tables gt ON gt.group_id = akg.group_id
-         WHERE akg.key_id = ?`
-      ).bind(row.id).all<{ table_name: string }>(),
-      c.env.DB.prepare(
-        `SELECT group_id FROM _api_key_groups WHERE key_id = ?`
-      ).bind(row.id).all<{ group_id: number }>(),
-      row.notes_scope === 'roots'
-        ? c.env.DB.prepare(
-            `SELECT note_id FROM _api_key_note_roots WHERE key_id = ?`
-          ).bind(String(row.id)).all<{ note_id: string }>()
-        : Promise.resolve({ results: [] as Array<{ note_id: string }> }),
-    ])
-
-    c.set('allowedTables', allowed.results.map(r => r.table_name))
-    c.set('allowedGroupIds', groupIds.results.map(r => r.group_id))
-    c.set(
-      'allowedNoteRootIds',
-      row.notes_scope === 'all'
-        ? null
-        : row.notes_scope === 'roots'
-          ? noteRoots.results.map((r) => r.note_id)
-          : [],
-    )
+    const groupIds = await c.env.DB.prepare(
+      `SELECT group_id FROM _api_key_groups WHERE key_id = ?`,
+    ).bind(row.id).all<{ group_id: number }>()
+    const ids = groupIds.results.map((r) => r.group_id)
+    const access = await getFolderScopedAccess(c.env.DB, row.team_id ?? c.get('teamId'), ids)
+    c.set('allowedTables', access.tableNames)
+    c.set('allowedGroupIds', access.folderGroupIds)
+    c.set('allowedNoteRootIds', access.noteIds)
   } else {
     c.set('allowedTables', null)
     c.set('allowedGroupIds', null)

@@ -24,10 +24,11 @@
                       {{ k.type === 'readonly' ? 'Read-only' : 'Read-write' }}
                     </n-tag>
                     <n-tag v-if="k.scope === 'groups'" size="tiny" :bordered="false">
-                      {{ k.groups?.map(g => g.name).join(', ') || 'No groups' }}
+                      {{ k.groups?.map(g => g.name).join(', ') || 'No folders' }}
                     </n-tag>
                     <n-tag v-else size="tiny" :bordered="false">All tables</n-tag>
-                    <n-tag v-if="k.notes_scope === 'roots'" size="tiny" :bordered="false">
+                    <n-tag v-if="k.scope === 'groups'" size="tiny" :bordered="false">Notes in those folders</n-tag>
+                    <n-tag v-else-if="k.notes_scope === 'roots'" size="tiny" :bordered="false">
                       {{ k.note_roots?.map(n => n.title).join(', ') || 'Selected note roots' }}
                     </n-tag>
                     <n-tag v-else-if="k.notes_scope === 'all'" size="tiny" :bordered="false">All notes</n-tag>
@@ -368,22 +369,23 @@
       <n-form-item label="Scope">
         <n-radio-group v-model:value="newKey.scope">
           <n-space>
-            <n-radio value="all">All tables</n-radio>
-            <n-radio value="groups">Selected groups</n-radio>
+            <n-radio value="all">All tables and notes</n-radio>
+            <n-radio value="groups">Selected folders</n-radio>
           </n-space>
         </n-radio-group>
       </n-form-item>
-      <n-form-item v-if="newKey.scope === 'groups'" label="Select Groups">
+      <n-form-item v-if="newKey.scope === 'groups'" label="Folders">
         <template v-if="groupList?.length">
           <n-checkbox-group v-model:value="newKey.group_ids">
             <n-space>
               <n-checkbox v-for="g in groupList" :key="g.id" :value="g.id" :label="g.name" />
             </n-space>
           </n-checkbox-group>
+          <p class="hint" style="margin-top: 8px;">Includes tables and notes in these folders and their nested folders.</p>
         </template>
-        <span v-else class="hint">No groups yet — please create one from the dashboard first</span>
+        <span v-else class="hint">No folders yet — create one from the sidebar first</span>
       </n-form-item>
-      <n-form-item label="Notes Access">
+      <n-form-item v-if="newKey.scope === 'all'" label="Notes Access">
         <n-radio-group v-model:value="newKey.notes_scope">
           <n-space>
             <n-radio value="none">No notes</n-radio>
@@ -392,7 +394,7 @@
           </n-space>
         </n-radio-group>
       </n-form-item>
-      <n-form-item v-if="newKey.notes_scope === 'roots'" label="Select Directories">
+      <n-form-item v-if="newKey.scope === 'all' && newKey.notes_scope === 'roots'" label="Select Directories">
         <template v-if="noteTree?.length">
           <n-checkbox-group v-model:value="newKey.note_root_ids">
             <div class="note-root-list">
@@ -509,8 +511,8 @@ async function handleCreateKey() {
       type: newKey.value.type,
       scope: newKey.value.scope,
       group_ids: newKey.value.scope === 'groups' ? newKey.value.group_ids : undefined,
-      notes_scope: newKey.value.notes_scope,
-      note_root_ids: newKey.value.notes_scope === 'roots' ? newKey.value.note_root_ids : undefined,
+      notes_scope: newKey.value.scope === 'groups' ? 'all' : newKey.value.notes_scope,
+      note_root_ids: newKey.value.scope === 'all' && newKey.value.notes_scope === 'roots' ? newKey.value.note_root_ids : undefined,
     })
     newKeyValue.value = res.data.key
     showCreate.value = false
@@ -712,8 +714,9 @@ async function handleExportTablesBundle() {
 }
 
 watch(() => newKey.value.scope, (scope) => {
-  if (scope === 'groups' && newKey.value.notes_scope === 'all') {
-    newKey.value.notes_scope = 'none'
+  if (scope === 'groups') {
+    newKey.value.notes_scope = 'all'
+    newKey.value.note_root_ids = []
   }
 })
 

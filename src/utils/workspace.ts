@@ -417,13 +417,69 @@ export async function listWorkspaceNodes(
   return result.results
 }
 
+/** Tables and notes inside selected folders, including nested folders. */
+export async function getFolderScopedAccess(
+  db: SqliteDatabase,
+  teamId: number | undefined,
+  groupIds: number[],
+): Promise<{ tableNames: string[]; noteIds: string[]; folderGroupIds: number[] }> {
+  if (groupIds.length === 0) {
+    return { tableNames: [], noteIds: [], folderGroupIds: [] }
+  }
+  const nodes = await listWorkspaceNodes(db, teamId)
+  const byParent = new Map<string | null, typeof nodes>()
+  for (const n of nodes) {
+    const arr = byParent.get(n.parent_id) ?? []
+    arr.push(n)
+    byParent.set(n.parent_id, arr)
+  }
+  const selected = new Set(
+    nodes.filter((n) => n.kind === 'folder' && n.group_id !== null && groupIds.includes(n.group_id)).map((n) => n.id),
+  )
+  const queue = [...selected]
+  const seen = new Set<string>(queue)
+  while (queue.length > 0) {
+    const id = queue.shift()!
+    for (const child of byParent.get(id) ?? []) {
+      if (seen.has(child.id)) continue
+      seen.add(child.id)
+      if (child.kind === 'folder') queue.push(child.id)
+    }
+  }
+  const tableNames = new Set<string>()
+  const noteIds = new Set<string>()
+  const folderGroupIds = new Set<number>(groupIds)
+  for (const n of nodes) {
+    if (!seen.has(n.id)) continue
+    if (n.kind === 'folder' && n.group_id != null) folderGroupIds.add(n.group_id)
+    if (n.kind === 'table' && n.ref) tableNames.add(n.ref)
+    if (n.kind === 'note' && n.ref) noteIds.add(n.ref)
+  }
+  if (folderGroupIds.size > 0) {
+    const placeholders = [...folderGroupIds].map(() => '?').join(',')
+    const extra = await db.prepare(
+      `SELECT DISTINCT table_name FROM _group_tables WHERE group_id IN (${placeholders})`,
+    ).bind(...folderGroupIds).all<{ table_name: string }>()
+    for (const row of extra.results) tableNames.add(row.table_name)
+  }
+  return {
+    tableNames: [...tableNames],
+    noteIds: [...noteIds],
+    folderGroupIds: [...folderGroupIds],
+  }
+}
+
 export function filterVisibleNodes(
   nodes: WorkspaceNode[],
   allowedTables: string[] | null,
   allowedNoteIds: Set<string> | null,
+  allowedGroupIds: number[] | null = null,
 ): WorkspaceNode[] {
   return nodes.filter((n) => {
-    if (n.kind === 'folder') return true
+    if (n.kind === 'folder') {
+      if (allowedGroupIds === null) return true
+      return n.group_id != null && allowedGroupIds.includes(n.group_id)
+    }
     if (n.kind === 'table') {
       if (!n.ref) return false
       return allowedTables === null || allowedTables.includes(n.ref)

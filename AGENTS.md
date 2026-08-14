@@ -11,7 +11,7 @@
 - 工作区位置只写 `_workspace_nodes`。建文件夹/移动表必须同时维护对应 `_groups` / `_group_tables`（文件夹 1:1 对应 group）。
 - 笔记进文件夹只改工作区节点，不写 `_group_tables`。
 - 禁止删除非空文件夹；禁止删文件夹时级联 DROP 表。
-- 第一期不改 API Key 模型（表分组 + 笔记根）。
+- API Key：`scope=groups` 按文件夹授权，包含该文件夹及子文件夹里的表和笔记。`notes_scope` 只在 `scope=all` 时使用。
 - 不要合并 TableView 与 NotesPage。
 
 ## 运行时

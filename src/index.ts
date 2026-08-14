@@ -112,9 +112,9 @@ function openApiSpec(serverUrl: string) {
 
 **Groups vs folders (important for scoped keys):**
 - Sidebar **folders** are 1:1 with **groups**. \`group_id\` is the folder's group.
-- Table access for \`scope=groups\` keys is still decided by \`/api/groups\` and \`_group_tables\`, not by a new folder-permission model.
-- Putting a table in a folder updates that group's table list. Notes placed in a folder do **not** inherit group table access; notes use \`notes_scope\` / \`note_root_ids\`.
-- Agents can keep using table names + \`/api/groups\`. Use \`/api/workspace/*\` only when you need sidebar layout (create folder, move nodes).
+- \`scope=groups\` keys may use the tables **and notes** inside the selected folders (including nested folders). \`group_id\` is the folder's group.
+- \`notes_scope\` applies only when \`scope=all\` (all / none / selected note roots). A groups-scoped key does not use a separate "no notes" switch.
+- Agents still identify tables by name and folders/groups by \`group_id\`. Use \`/api/workspace/*\` for sidebar layout.
 
 **Other conventions:**
 - Pagination is cursor-based (keyset): pass the previous page's \`next_cursor\` as \`cursor\`
@@ -588,9 +588,9 @@ function openApiSpec(serverUrl: string) {
                   properties: {
                     name: { type: 'string' },
                     type: { type: 'string', enum: ['readonly', 'readwrite'] },
-                    scope: { type: 'string', enum: ['all', 'groups'], description: 'all = all tables; groups = only tables in the listed groups (same IDs as sidebar folders)' },
-                    group_ids: { type: 'array', items: { type: 'integer' }, description: 'Group IDs when scope=groups. Each ID is also a sidebar folder (group_id on the folder node).' },
-                    notes_scope: { type: 'string', enum: ['all', 'none', 'roots'], description: 'all = access all notes; none = no notes; roots = only selected note directories and descendants' },
+                    scope: { type: 'string', enum: ['all', 'groups'], description: 'all = all tables (notes follow notes_scope); groups = tables and notes inside selected folders' },
+                    group_ids: { type: 'array', items: { type: 'integer' }, description: 'Folder/group IDs when scope=groups.' },
+                    notes_scope: { type: 'string', enum: ['all', 'none', 'roots'], description: 'Used when scope=all. Ignored for scope=groups (folder membership includes notes).' },
                     note_root_ids: { type: 'array', items: { type: 'string' }, description: 'List of note root IDs when notes_scope=roots' },
                   },
                 },
