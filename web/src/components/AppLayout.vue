@@ -66,17 +66,17 @@
       <!-- Footer -->
       <div class="sidebar-footer">
         <transition name="menu-slide">
-          <div v-if="showUserMenu" class="user-menu">
-            <div class="user-menu-item" @click="handleMenuItem('settings')">
+          <div v-if="showUserMenu" class="user-menu" @click.stop>
+            <div class="user-menu-item" @click.stop="handleMenuItem('settings')">
               <n-icon :component="SettingsIcon" size="16" />
               <span>Settings</span>
             </div>
-            <div v-if="currentUser?.role === 'admin'" class="user-menu-item" @click="handleMenuItem('administration')">
+            <div v-if="currentUser?.role === 'admin'" class="user-menu-item" @click.stop="handleMenuItem('administration')">
               <n-icon :component="AdminIcon" size="16" />
               <span>Administration</span>
             </div>
             <div class="user-menu-divider" />
-            <div class="user-menu-item" @click="handleMenuItem('logout')">
+            <div class="user-menu-item" @click.stop="handleMenuItem('logout')">
               <n-icon :component="LogoutIcon" size="16" />
               <span>Logout</span>
             </div>
@@ -886,13 +886,23 @@ async function handleNoteReorder({ dragId, dropId, mode }: { dragId: string; dro
 }
 
 // ── User menu ───────────────────────────────────────────────────
-const currentUser = computed(() => getCachedUser())
+const currentUser = ref(getCachedUser())
 const showUserMenu = ref(false)
+
+watch(() => route.fullPath, () => {
+  currentUser.value = getCachedUser()
+})
 
 function handleMenuItem(key: string) {
   showUserMenu.value = false
-  if (key === 'settings') router.push('/settings')
-  if (key === 'administration') router.push('/administration')
+  if (key === 'settings') {
+    void router.push('/settings')
+    return
+  }
+  if (key === 'administration') {
+    void router.push('/administration')
+    return
+  }
   if (key === 'logout') logout()
 }
 

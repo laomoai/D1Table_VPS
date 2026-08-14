@@ -26,13 +26,7 @@
                     <n-tag v-if="k.scope === 'groups'" size="tiny" :bordered="false">
                       {{ k.groups?.map(g => g.name).join(', ') || 'No folders' }}
                     </n-tag>
-                    <n-tag v-else size="tiny" :bordered="false">All tables</n-tag>
-                    <n-tag v-if="k.scope === 'groups'" size="tiny" :bordered="false">Notes in those folders</n-tag>
-                    <n-tag v-else-if="k.notes_scope === 'roots'" size="tiny" :bordered="false">
-                      {{ k.note_roots?.map(n => n.title).join(', ') || 'Selected note roots' }}
-                    </n-tag>
-                    <n-tag v-else-if="k.notes_scope === 'all'" size="tiny" :bordered="false">All notes</n-tag>
-                    <n-tag v-else size="tiny" :bordered="false">No notes</n-tag>
+                    <n-tag v-else size="tiny" :bordered="false">All folders</n-tag>
                     <n-tag v-if="!k.is_active" type="error" size="tiny">Revoked</n-tag>
                     <span class="key-last-used">{{ k.last_used_at ? 'Last used ' + formatRelativeTime(k.last_used_at) : 'Never used' }}</span>
                   </div>
@@ -369,7 +363,7 @@
       <n-form-item label="Scope">
         <n-radio-group v-model:value="newKey.scope">
           <n-space>
-            <n-radio value="all">All tables and notes</n-radio>
+            <n-radio value="all">All folders</n-radio>
             <n-radio value="groups">Selected folders</n-radio>
           </n-space>
         </n-radio-group>
@@ -384,38 +378,6 @@
           <p class="hint" style="margin-top: 8px;">Includes tables and notes in these folders and their nested folders.</p>
         </template>
         <span v-else class="hint">No folders yet — create one from the sidebar first</span>
-      </n-form-item>
-      <n-form-item v-if="newKey.scope === 'all'" label="Notes Access">
-        <n-radio-group v-model:value="newKey.notes_scope">
-          <n-space>
-            <n-radio value="none">No notes</n-radio>
-            <n-radio value="all">All notes</n-radio>
-            <n-radio value="roots">Selected directories</n-radio>
-          </n-space>
-        </n-radio-group>
-      </n-form-item>
-      <n-form-item v-if="newKey.scope === 'all' && newKey.notes_scope === 'roots'" label="Select Directories">
-        <template v-if="noteTree?.length">
-          <n-checkbox-group v-model:value="newKey.note_root_ids">
-            <div class="note-root-list">
-              <label
-                v-for="note in noteRootOptions"
-                :key="note.id"
-                class="note-root-item"
-                :style="{ paddingLeft: `${note.depth * 18}px` }"
-              >
-                <n-checkbox :value="note.id" />
-                <span class="note-root-icon">
-                  <IonIcon v-if="note.icon && note.icon.startsWith('ion:')" :name="note.icon.slice(4)" :size="14" />
-                  <span v-else-if="note.icon" class="note-emoji-icon">{{ note.icon }}</span>
-                  <IonIcon v-else :name="note.hasChildren ? 'FolderOutline' : 'DocumentOutline'" :size="14" />
-                </span>
-                <span class="note-root-name">{{ note.title || 'Untitled' }}</span>
-              </label>
-            </div>
-          </n-checkbox-group>
-        </template>
-        <span v-else class="hint">No notes yet</span>
       </n-form-item>
     </n-form>
     <template #footer>
@@ -449,7 +411,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import {
@@ -457,7 +419,7 @@ import {
   NSpin, NModal, NAlert, NRadioGroup, NRadio, NCheckboxGroup, NCheckbox,
   NSlider, NPagination, useMessage, useDialog,
 } from 'naive-ui'
-import { api, notesApi, teamApi, getCurrentUser, avatarUrl, type ApiKeyInfo, type TableMeta, type TrashItem, type TeamDetail, type NoteListItem } from '@/api/client'
+import { api, notesApi, teamApi, getCurrentUser, avatarUrl, type ApiKeyInfo, type TableMeta, type TrashItem, type TeamDetail } from '@/api/client'
 import ExportSchemaModal from '@/components/ExportSchemaModal.vue'
 import HoverTooltipText from '@/components/HoverTooltipText.vue'
 import IonIcon from '@/components/IonIcon.vue'
@@ -488,8 +450,6 @@ const newKey = ref({
   type: 'readonly' as 'readonly' | 'readwrite',
   scope: 'all' as 'all' | 'groups',
   group_ids: [] as number[],
-  notes_scope: 'none' as 'all' | 'none' | 'roots',
-  note_root_ids: [] as string[],
 })
 
 // ── API Keys ──────────────────────────────────────────────────
@@ -511,13 +471,12 @@ async function handleCreateKey() {
       type: newKey.value.type,
       scope: newKey.value.scope,
       group_ids: newKey.value.scope === 'groups' ? newKey.value.group_ids : undefined,
-      notes_scope: newKey.value.scope === 'groups' ? 'all' : newKey.value.notes_scope,
-      note_root_ids: newKey.value.scope === 'all' && newKey.value.notes_scope === 'roots' ? newKey.value.note_root_ids : undefined,
+      notes_scope: 'all',
     })
     newKeyValue.value = res.data.key
     showCreate.value = false
     showNewKey.value = true
-    newKey.value = { name: '', type: 'readonly', scope: 'all', group_ids: [], notes_scope: 'none', note_root_ids: [] }
+    newKey.value = { name: '', type: 'readonly', scope: 'all', group_ids: [] }
     queryClient.invalidateQueries({ queryKey: ['admin-keys'] })
   } catch (err) {
     message.error((err as Error).message)
@@ -602,29 +561,6 @@ const { data: noteTree } = useQuery({
   queryKey: ['notes', 'tree', 'settings'],
   queryFn: notesApi.getTree,
   retry: false,
-})
-
-type NoteRootOption = NoteListItem & { depth: number; hasChildren: boolean }
-
-const noteRootOptions = computed<NoteRootOption[]>(() => {
-  const items = noteTree.value ?? []
-  const childrenMap = new Map<string, NoteListItem[]>()
-  for (const note of items) {
-    if (!note.parent_id) continue
-    const arr = childrenMap.get(note.parent_id) ?? []
-    arr.push(note)
-    childrenMap.set(note.parent_id, arr)
-  }
-
-  const roots = items.filter((note) => !note.parent_id)
-  const out: NoteRootOption[] = []
-  const walk = (note: NoteListItem, depth: number) => {
-    const children = childrenMap.get(note.id) ?? []
-    out.push({ ...note, depth, hasChildren: children.length > 0 })
-    for (const child of children) walk(child, depth + 1)
-  }
-  for (const root of roots) walk(root, 0)
-  return out
 })
 
 async function handleExportNotesBundle() {
@@ -712,13 +648,6 @@ async function handleExportTablesBundle() {
     exportingTablesBundle.value = false
   }
 }
-
-watch(() => newKey.value.scope, (scope) => {
-  if (scope === 'groups') {
-    newKey.value.notes_scope = 'all'
-    newKey.value.note_root_ids = []
-  }
-})
 
 const { data: allTables } = useQuery({
   queryKey: ['tables'],

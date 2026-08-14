@@ -49,14 +49,10 @@
     <Teleport to="body">
       <div
         v-if="menuOpen"
-        class="ws-menu-scrim"
-        @mousedown="menuOpen = false"
+        class="ws-menu"
+        :style="menuStyle"
+        @mousedown.stop
       >
-        <div
-          class="ws-menu"
-          :style="menuStyle"
-          @mousedown.stop
-        >
           <button v-if="node.kind === 'folder'" class="ws-menu-item" @click="onRename">Rename</button>
           <div class="ws-menu-item has-sub" @mouseenter="showMove = true" @mouseleave="showMove = false">
             <span>Move to</span>
@@ -80,7 +76,6 @@
             <div class="ws-menu-sep" />
             <button class="ws-menu-item danger" @click="onDelete">Delete</button>
           </template>
-        </div>
       </div>
     </Teleport>
 
@@ -113,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import type { WorkspaceNode } from '@/api/client'
 import HoverTooltipText from './HoverTooltipText.vue'
 import IonIcon from './IonIcon.vue'
@@ -166,6 +161,13 @@ const menuStyle = computed(() => ({
   top: `${menuPos.value.y}px`,
 }))
 
+function onMenuPointerDown(e: PointerEvent) {
+  const el = e.target as Element | null
+  if (menuOpen.value && el && !el.closest('.ws-menu')) {
+    menuOpen.value = false
+  }
+}
+
 function openMenu(e: MouseEvent) {
   e.preventDefault()
   e.stopPropagation()
@@ -174,25 +176,33 @@ function openMenu(e: MouseEvent) {
   menuPos.value = { x, y }
   showMove.value = false
   menuOpen.value = true
+  document.addEventListener('pointerdown', onMenuPointerDown, true)
 }
 
-function onRename() {
+function closeMenu() {
   menuOpen.value = false
+  document.removeEventListener('pointerdown', onMenuPointerDown, true)
+}
+
+onUnmounted(closeMenu)
+
+function onRename() {
+  closeMenu()
   emit('rename', props.node)
 }
 
 function onMove(parentId: string | null) {
-  menuOpen.value = false
+  closeMenu()
   emit('move', { id: props.node.id, parent_id: parentId })
 }
 
 function onDelete() {
-  menuOpen.value = false
+  closeMenu()
   emit('delete-folder', props.node.id)
 }
 
 function onArchive() {
-  menuOpen.value = false
+  closeMenu()
   if (props.node.ref) emit('archive', props.node.ref)
 }
 
@@ -304,13 +314,9 @@ function onDrop(e: DragEvent) {
 </style>
 
 <style>
-.ws-menu-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 4100;
-}
 .ws-menu {
   position: fixed;
+  z-index: 4100;
   min-width: 168px;
   padding: 4px;
   background: #fff;
