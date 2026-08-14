@@ -9,10 +9,16 @@
 
       <div class="panel-header">
         <input v-model="workspaceSearch" class="panel-search-input" placeholder="Search..." />
-        <div class="add-wrap">
+        <button
+          class="panel-manage-btn"
+          :class="{ on: manageMode }"
+          title="Rename, move, or delete"
+          @click="manageMode = !manageMode"
+        >{{ manageMode ? 'Done' : 'Manage' }}</button>
+        <div v-if="!manageMode" class="add-wrap">
           <button class="panel-add-btn" title="Add" @click="showAddMenu = !showAddMenu">+</button>
           <div v-if="showAddMenu" class="add-menu" @click.stop>
-            <button @click="addFolder()">Folder</button>
+            <button @click="openFolderModal()">Folder</button>
             <button @click="openCreateTable()">Table</button>
             <button @click="addNote()">Note</button>
           </div>
@@ -38,9 +44,13 @@
             :item-style="tableItemStyle"
             :drop-target-id="wsDropState.id"
             :drop-position="wsDropState.position"
+            :manage-mode="manageMode"
+            :folder-options="folderOptions"
             @select="selectWorkspaceNode"
             @toggle="toggleWorkspaceFolder"
             @add-here="onAddHere"
+            @rename="openRenameModal"
+            @move="onManageMove"
             @delete-folder="onDeleteFolder"
             @reorder="handleWorkspaceReorder"
             @update:drop-state="wsDropState = $event"
@@ -108,6 +118,13 @@
 
     <NotePreviewModal />
     <CreateTableModal v-model:show="showCreateTable" :folder-id="createTargetFolder" @created="onTableCreated" />
+    <WorkspaceNameModal
+      v-model:show="showFolderModal"
+      :title="folderModalMode === 'rename' ? 'Rename folder' : 'New folder'"
+      :confirm-label="folderModalMode === 'rename' ? 'Save' : 'Create'"
+      :initial="folderModalInitial"
+      @confirm="submitFolderModal"
+    />
   </div>
 </template>
 
@@ -132,6 +149,7 @@ import NoteTreeItem from './NoteTreeItem.vue'
 import NotePreviewModal from './NotePreviewModal.vue'
 import WorkspaceTreeItem from './WorkspaceTreeItem.vue'
 import CreateTableModal from './CreateTableModal.vue'
+import WorkspaceNameModal from './WorkspaceNameModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -143,7 +161,12 @@ const RECENT_KEY = 'd1table_recent_access'
 
 const workspaceSearch = ref('')
 const showAddMenu = ref(false)
+const manageMode = ref(false)
 const showCreateTable = ref(false)
+const showFolderModal = ref(false)
+const folderModalMode = ref<'create' | 'rename'>('create')
+const folderModalInitial = ref('')
+const renameTargetId = ref<string | null>(null)
 const createTargetFolder = ref<string | null>(null)
 const wsDropState = ref<{ id: string | null; position: 'above' | 'child' | null }>({ id: null, position: null })
 const EXPANDED_WS_KEY = 'd1table_expanded_workspace'
@@ -194,18 +217,49 @@ function selectWorkspaceNode(node: WorkspaceNode) {
   if (node.kind === 'note' && node.ref) router.push(`/notes/${node.ref}`)
 }
 
+const folderOptions = computed(() =>
+  (workspaceNodes.value ?? []).filter((n) => n.kind === 'folder').map((n) => ({ id: n.id, title: n.title })),
+)
+
 function onAddHere(folderId: string) {
   createTargetFolder.value = folderId
   showAddMenu.value = true
 }
 
-async function addFolder(parentId?: string) {
+function openFolderModal() {
   showAddMenu.value = false
-  const title = window.prompt('Folder name')
-  if (!title?.trim()) return
+  folderModalMode.value = 'create'
+  folderModalInitial.value = ''
+  renameTargetId.value = null
+  showFolderModal.value = true
+}
+
+function openRenameModal(node: WorkspaceNode) {
+  if (node.kind !== 'folder') return
+  folderModalMode.value = 'rename'
+  folderModalInitial.value = node.title
+  renameTargetId.value = node.id
+  showFolderModal.value = true
+}
+
+async function submitFolderModal(name: string) {
   try {
-    await workspaceApi.createFolder({ title: title.trim(), parent_id: parentId ?? createTargetFolder.value })
-    createTargetFolder.value = null
+    if (folderModalMode.value === 'rename' && renameTargetId.value) {
+      await workspaceApi.renameFolder(renameTargetId.value, name)
+    } else {
+      await workspaceApi.createFolder({ title: name, parent_id: createTargetFolder.value })
+      createTargetFolder.value = null
+    }
+    showFolderModal.value = false
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+  } catch (err) {
+    message.error((err as Error).message)
+  }
+}
+
+async function onManageMove(payload: { id: string; parent_id: string | null }) {
+  try {
+    await workspaceApi.move({ id: payload.id, parent_id: payload.parent_id })
     queryClient.invalidateQueries({ queryKey: ['workspace'] })
   } catch (err) {
     message.error((err as Error).message)
@@ -1053,6 +1107,23 @@ async function logout() {
   justify-content: center;
   flex-shrink: 0;
   transition: all 0.1s;
+}
+.panel-manage-btn {
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 3px;
+  border: 1px solid #e9e9e7;
+  background: #fff;
+  color: #787774;
+  font-size: 12px;
+  cursor: pointer;
+}
+.panel-manage-btn:hover { background: rgba(55, 53, 47, 0.06); color: #37352f; }
+.panel-manage-btn.on {
+  background: #2c2a26;
+  border-color: #2c2a26;
+  color: #fff;
 }
 .add-wrap { position: relative; flex-shrink: 0; }
 .add-menu {

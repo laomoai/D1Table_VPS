@@ -33,14 +33,26 @@
       <span class="ws-title-wrap">
         <HoverTooltipText :text="node.title || 'Untitled'" class-name="ws-title" />
       </span>
-      <div class="ws-actions">
+      <div v-if="!manageMode" class="ws-actions">
         <button
           v-if="node.kind === 'folder'"
           class="ws-action-btn"
+          title="Add inside"
+          @click.stop="emit('add-here', node.id)"
+        >+</button>
+      </div>
+      <div v-else class="ws-manage" @click.stop>
+        <button class="ws-manage-btn" title="Rename" @click="emit('rename', node)">Rename</button>
+        <select class="ws-move" :value="node.parent_id ?? ''" @change="onMoveSelect">
+          <option value="">Workspace root</option>
+          <option v-for="opt in moveTargets" :key="opt.id" :value="opt.id">{{ opt.title }}</option>
+        </select>
+        <button
+          v-if="node.kind === 'folder'"
+          class="ws-manage-btn danger"
           title="Delete folder"
-          @click.stop="emit('delete-folder', node.id)"
-        >×</button>
-        <button class="ws-action-btn" title="Add inside" @click.stop="emit('add-here', node.id)">+</button>
+          @click="emit('delete-folder', node.id)"
+        >Delete</button>
       </div>
     </div>
     <div v-if="hasChildren && expandedIds.has(node.id)" class="ws-children">
@@ -56,9 +68,13 @@
         :item-style="itemStyle"
         :drop-target-id="dropTargetId"
         :drop-position="dropPosition"
+        :manage-mode="manageMode"
+        :folder-options="folderOptions"
         @select="emit('select', $event)"
         @toggle="emit('toggle', $event)"
         @add-here="emit('add-here', $event)"
+        @rename="emit('rename', $event)"
+        @move="emit('move', $event)"
         @delete-folder="emit('delete-folder', $event)"
         @reorder="emit('reorder', $event)"
         @update:drop-state="emit('update:drop-state', $event)"
@@ -83,12 +99,16 @@ const props = defineProps<{
   itemStyle?: string | Record<string, string>
   dropTargetId?: string | null
   dropPosition?: 'above' | 'child' | null
+  manageMode?: boolean
+  folderOptions?: { id: string; title: string }[]
 }>()
 
 const emit = defineEmits<{
   select: [node: WorkspaceNode]
   toggle: [id: string]
   'add-here': [folderId: string]
+  rename: [node: WorkspaceNode]
+  move: [payload: { id: string; parent_id: string | null }]
   'delete-folder': [id: string]
   reorder: [payload: { dragId: string; dropId: string; mode: 'above' | 'child' }]
   'update:drop-state': [state: { id: string | null; position: 'above' | 'child' | null }]
@@ -105,6 +125,15 @@ const defaultIcon = computed(() => {
   if (props.node.kind === 'table') return 'GridOutline'
   return 'DocumentOutline'
 })
+
+const moveTargets = computed(() =>
+  (props.folderOptions ?? []).filter((f) => f.id !== props.node.id),
+)
+
+function onMoveSelect(e: Event) {
+  const value = (e.target as HTMLSelectElement).value
+  emit('move', { id: props.node.id, parent_id: value || null })
+}
 
 function onClick() {
   if (props.node.kind === 'folder') {
@@ -202,5 +231,33 @@ function onDrop(e: DragEvent) {
   border-radius: 2px;
 }
 .ws-action-btn:hover { color: #37352f; background: rgba(55,53,47,0.08); }
+.ws-manage {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  max-width: 58%;
+}
+.ws-manage-btn {
+  background: #fff;
+  border: 1px solid #e4e0d8;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 1px 6px;
+  color: #5c5852;
+  cursor: pointer;
+}
+.ws-manage-btn:hover { background: #f4f1ea; }
+.ws-manage-btn.danger { color: #b42318; border-color: #f0c9c4; }
+.ws-manage-btn.danger:hover { background: #fff1f0; }
+.ws-move {
+  max-width: 88px;
+  height: 20px;
+  font-size: 11px;
+  border: 1px solid #e4e0d8;
+  border-radius: 4px;
+  color: #5c5852;
+  background: #fff;
+}
 .ws-children { padding-left: 16px; }
 </style>
