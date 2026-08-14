@@ -105,22 +105,13 @@ export async function attachTablesToGroupFolder(
   ).bind(groupId).first<{ id: string }>()
   if (!folder) return
 
-  const selected = new Set(tableNames)
-  const current = await db.prepare(
-    `SELECT id, ref FROM _workspace_nodes WHERE kind = 'table' AND parent_id = ?`,
-  ).bind(folder.id).all<{ id: string; ref: string | null }>()
-
   for (const name of tableNames) {
-    await db.prepare(
-      `UPDATE _workspace_nodes SET parent_id = ?, updated_at = unixepoch() WHERE kind = 'table' AND ref = ?`,
-    ).bind(folder.id, name).run()
-  }
-  for (const row of current.results) {
-    if (row.ref && !selected.has(row.ref)) {
-      await db.prepare(
-        `UPDATE _workspace_nodes SET parent_id = NULL, updated_at = unixepoch() WHERE id = ?`,
-      ).bind(row.id).run()
-    }
+    const title = await db.prepare(`SELECT title FROM _meta WHERE table_name = ?`).bind(name).first<{ title: string | null }>()
+    await ensureTableNode(db, {
+      tableName: name,
+      title: title?.title || name,
+      folderId: folder.id,
+    })
   }
 }
 
@@ -268,7 +259,8 @@ export async function moveNode(
   db: SqliteDatabase,
   opts: { id: string; parentId: string | null; sortOrder?: number; teamId?: number },
 ): Promise<void> {
-  const node = await getNode(db, opts.id)
+  const sourceFolderId = opts.id.includes('::') ? opts.id.slice(opts.id.indexOf('::') + 2) : null
+  const node = await getNode(db, canonicalNodeId(opts.id))
   if (!node) {
     throw Object.assign(new Error('Node not found'), { status: 404, code: 'NOT_FOUND' })
   }
@@ -293,7 +285,8 @@ export async function moveNode(
   ]
 
   if (node.kind === 'table' && node.ref) {
-    const oldFolder = node.parent_id ? await getNode(db, node.parent_id) : null
+    const oldFolderId = sourceFolderId || node.parent_id
+    const oldFolder = oldFolderId ? await getNode(db, oldFolderId) : null
     if (oldFolder?.group_id) {
       stmts.push(
         db.prepare(`DELETE FROM _group_tables WHERE group_id = ? AND table_name = ?`).bind(oldFolder.group_id, node.ref),
@@ -380,6 +373,59 @@ export async function updateNodeTitleByRef(
   await db.prepare(
     `UPDATE _workspace_nodes SET title = ?, updated_at = unixepoch() WHERE kind = ? AND ref = ?`,
   ).bind(title, kind, ref).run()
+}
+
+export async function expandTablesAcrossFolders(
+  db: SqliteDatabase,
+  teamId: number | undefined,
+  nodes: WorkspaceNode[],
+): Promise<WorkspaceNode[]> {
+  const folders = nodes.filter((n) => n.kind === 'folder' && n.group_id != null)
+  const tables = nodes.filter((n) => n.kind === 'table')
+  const others = nodes.filter((n) => n.kind !== 'table')
+  if (folders.length === 0) return nodes
+
+  const gids = folders.map((f) => f.group_id!)
+  const placeholders = gids.map(() => '?').join(',')
+  const membership = await db.prepare(
+    `SELECT group_id, table_name FROM _group_tables WHERE group_id IN (${placeholders})`,
+  ).bind(...gids).all<{ group_id: number; table_name: string }>()
+
+  const namesByGroup = new Map<number, string[]>()
+  for (const row of membership.results) {
+    const arr = namesByGroup.get(row.group_id) ?? []
+    arr.push(row.table_name)
+    namesByGroup.set(row.group_id, arr)
+  }
+
+  const tableByRef = new Map(tables.map((t) => [t.ref, t]))
+  const expanded: WorkspaceNode[] = [...others]
+  const placed = new Set<string>()
+
+  for (const folder of folders) {
+    for (const name of namesByGroup.get(folder.group_id!) ?? []) {
+      const base = tableByRef.get(name)
+      if (!base) continue
+      expanded.push({
+        ...base,
+        id: `${base.id}::${folder.id}`,
+        parent_id: folder.id,
+      })
+      placed.add(name)
+    }
+  }
+
+  for (const table of tables) {
+    if (table.ref && !placed.has(table.ref)) {
+      expanded.push({ ...table, parent_id: null })
+    }
+  }
+  return expanded
+}
+
+export function canonicalNodeId(id: string): string {
+  const i = id.indexOf('::')
+  return i === -1 ? id : id.slice(0, i)
 }
 
 export async function listWorkspaceNodes(

@@ -8,6 +8,7 @@ import {
   createFolder,
   deleteEmptyFolder,
   filterVisibleNodes,
+  expandTablesAcrossFolders,
   listWorkspaceNodes,
   moveNode,
   renameFolder,
@@ -18,7 +19,8 @@ const workspace = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 workspace.get('/tree', async (c) => {
   await backfillMissingGroupFolders(c.env.DB, c.get('teamId'))
   await backfillTableFolderParents(c.env.DB, c.get('teamId'))
-  const nodes = await listWorkspaceNodes(c.env.DB, c.get('teamId'))
+  const rawNodes = await listWorkspaceNodes(c.env.DB, c.get('teamId'))
+  const nodes = await expandTablesAcrossFolders(c.env.DB, c.get('teamId'), rawNodes)
   const allowedNoteIds = await getAccessibleNoteIds(c.env.DB, c.get('teamId'), c.get('allowedNoteRootIds'))
   const visible = filterVisibleNodes(
     nodes,

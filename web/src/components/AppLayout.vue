@@ -28,7 +28,7 @@
           </div>
           <WorkspaceTreeItem
             v-for="node in workspaceRoots"
-            :key="node.id"
+            :key="`${node.id}:${node.parent_id || ''}`"
             :node="node"
             :children="workspaceChildrenMap.get(node.id) ?? []"
             :children-map="workspaceChildrenMap"
