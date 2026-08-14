@@ -105,16 +105,23 @@ function openApiSpec(serverUrl: string) {
     openapi: '3.0.0',
     info: {
       title: 'D1Table API',
-      version: '2.0.0',
-      description: `Cloudflare D1-backed data management API with dynamic table CRUD, designed for AI Agent use.
+      version: '2.1.0',
+      description: `D1Table API (Ubuntu + SQLite). Dynamic table CRUD, notes, and a sidebar workspace tree. Designed for AI Agent use.
 
-**Key conventions:**
-- Authentication: include \`X-API-Key\` in the request header
-- Pagination: cursor-based pagination (keyset) — pass the previous page's \`next_cursor\` as the \`cursor\` parameter
-- Datetime format: datetime fields are returned as ISO 8601 UTC strings, e.g. \`2026-03-15T04:37:31.000Z\`
-- Each table has an API name (name, e.g. tbl_abc123) and a display name (title, e.g. "Customer List")
-- Each field has a column name (column_name) and a display name (title); use the column name in API requests — the response includes a display name mapping
-- Image fields: To set an image field, first upload via POST /api/upload/image, then use the returned paths in a record update/create.`,
+**Authentication:** send \`X-API-Key\` on API calls. The web UI uses an email/password session cookie instead. There is no Google OAuth.
+
+**Groups vs folders (important for scoped keys):**
+- Sidebar **folders** are 1:1 with **groups**. \`group_id\` is the folder's group.
+- Table access for \`scope=groups\` keys is still decided by \`/api/groups\` and \`_group_tables\`, not by a new folder-permission model.
+- Putting a table in a folder updates that group's table list. Notes placed in a folder do **not** inherit group table access; notes use \`notes_scope\` / \`note_root_ids\`.
+- Agents can keep using table names + \`/api/groups\`. Use \`/api/workspace/*\` only when you need sidebar layout (create folder, move nodes).
+
+**Other conventions:**
+- Pagination is cursor-based (keyset): pass the previous page's \`next_cursor\` as \`cursor\`
+- Datetime fields are ISO 8601 UTC, e.g. \`2026-03-15T04:37:31.000Z\`
+- Tables have an API name (\`name\`, e.g. tbl_abc123) and a display name (\`title\`)
+- Use field \`column_name\` in API requests; responses include display-name mapping
+- Images: POST /api/upload/image, then store the returned paths on the record`,
     },
     servers: [{ url: serverUrl }],
     security: [{ ApiKeyAuth: [] }],
@@ -219,6 +226,7 @@ function openApiSpec(serverUrl: string) {
                   properties: {
                     name: { type: 'string', description: 'API table name (e.g. tbl_abc123)', example: 'tbl_orders01' },
                     title: { type: 'string', description: 'Display name', example: 'Order Management' },
+                    folder_id: { type: 'string', nullable: true, description: 'Optional workspace folder node id. Places the table under that folder and into the matching group.' },
                     columns: {
                       type: 'array',
                       description: 'Field definitions',
@@ -580,8 +588,8 @@ function openApiSpec(serverUrl: string) {
                   properties: {
                     name: { type: 'string' },
                     type: { type: 'string', enum: ['readonly', 'readwrite'] },
-                    scope: { type: 'string', enum: ['all', 'groups'], description: 'all = access all tables; groups = access only tables in specified groups' },
-                    group_ids: { type: 'array', items: { type: 'integer' }, description: 'List of group IDs to associate when scope=groups' },
+                    scope: { type: 'string', enum: ['all', 'groups'], description: 'all = all tables; groups = only tables in the listed groups (same IDs as sidebar folders)' },
+                    group_ids: { type: 'array', items: { type: 'integer' }, description: 'Group IDs when scope=groups. Each ID is also a sidebar folder (group_id on the folder node).' },
                     notes_scope: { type: 'string', enum: ['all', 'none', 'roots'], description: 'all = access all notes; none = no notes; roots = only selected note directories and descendants' },
                     note_root_ids: { type: 'array', items: { type: 'string' }, description: 'List of note root IDs when notes_scope=roots' },
                   },
@@ -633,10 +641,11 @@ function openApiSpec(serverUrl: string) {
       '/api/groups': {
         get: {
           summary: 'List all groups (with associated tables)',
+          description: 'A group is the permission and membership record for a sidebar folder. The UI folder and this group share the same id (`group_id`).',
           responses: { '200': { description: 'Group list' } },
         },
         post: {
-          summary: 'Create group',
+          summary: 'Create group (also creates a sidebar folder)',
           requestBody: {
             required: true,
             content: {
@@ -682,7 +691,7 @@ function openApiSpec(serverUrl: string) {
       },
       '/api/groups/{id}/tables': {
         put: {
-          summary: 'Set tables in group (full replace)',
+          summary: 'Set tables in group (full replace; also nests them under the folder in the sidebar)',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
           requestBody: {
             required: true,
@@ -723,6 +732,109 @@ function openApiSpec(serverUrl: string) {
             '400': { description: 'Invalid request body' },
             '404': { description: 'Group not found' },
           },
+        },
+      },
+      '/api/workspace/tree': {
+        get: {
+          summary: 'List sidebar workspace nodes',
+          description: 'Flat list of folder, table, and note nodes. Rebuild the tree with `parent_id`. Folders do not have a content page. Table/note `ref` is the table name or note id. Does not replace group-based key authorization.',
+          responses: {
+            '200': {
+              description: 'Workspace nodes',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', example: 'wn_f_abc' },
+                            kind: { type: 'string', enum: ['folder', 'table', 'note'] },
+                            parent_id: { type: 'string', nullable: true },
+                            sort_order: { type: 'integer' },
+                            title: { type: 'string' },
+                            ref: { type: 'string', nullable: true, description: 'table name or note id; null for folders' },
+                            group_id: { type: 'integer', nullable: true, description: 'Present on folders; same id as /api/groups' },
+                            icon: { type: 'string', nullable: true },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/api/workspace/folders': {
+        post: {
+          summary: 'Create sidebar folder',
+          description: 'Also inserts a matching group used by scope=groups API keys.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string' },
+                    parent_id: { type: 'string', nullable: true, description: 'Parent folder workspace node id' },
+                  },
+                },
+              },
+            },
+          },
+          responses: { '201': { description: 'Folder created' }, '400': { description: 'Invalid parent or empty name' } },
+        },
+      },
+      '/api/workspace/folders/{id}': {
+        patch: {
+          summary: 'Rename sidebar folder (and its group)',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: { type: 'object', properties: { title: { type: 'string' } } },
+              },
+            },
+          },
+          responses: { '200': { description: 'Renamed' }, '404': { description: 'Folder not found' } },
+        },
+        delete: {
+          summary: 'Delete empty sidebar folder',
+          description: 'Fails with 409 if the folder still has children. Does not drop tables.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Deleted' },
+            '409': { description: 'Folder is not empty' },
+          },
+        },
+      },
+      '/api/workspace/move': {
+        post: {
+          summary: 'Move a workspace node',
+          description: 'parent_id must be a folder or null (root). Moving a table also updates that folder\'s group membership for scoped keys. Moving a note only changes the sidebar.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['id'],
+                  properties: {
+                    id: { type: 'string', description: 'Workspace node id' },
+                    parent_id: { type: 'string', nullable: true },
+                    sort_order: { type: 'integer' },
+                  },
+                },
+              },
+            },
+          },
+          responses: { '200': { description: 'Moved' }, '400': { description: 'Invalid parent (cycle or not a folder)' } },
         },
       },
       '/api/trash': {
@@ -816,7 +928,8 @@ function openApiSpec(serverUrl: string) {
                   properties: {
                     title: { type: 'string', description: 'Note title; defaults to "Untitled" if omitted', example: 'Meeting notes' },
                     content: { type: 'string', description: 'Note body (Markdown); max 1MB' },
-                    parent_id: { type: 'string', nullable: true, description: 'Parent note ID for nesting; omit for root-level note' },
+                    parent_id: { type: 'string', nullable: true, description: 'Parent note ID for the note document tree (sub-pages). Not a workspace folder.' },
+                    folder_id: { type: 'string', nullable: true, description: 'Optional workspace folder node id for a root note in the sidebar. Ignored when parent_id is set. Does not change note API-key scope.' },
                   },
                 },
               },
@@ -1289,21 +1402,59 @@ function openApiSpec(serverUrl: string) {
         },
       },
       '/api/auth/login': {
-        get: {
-          summary: 'Start Google OAuth login',
+        post: {
+          summary: 'Sign in with email and password',
           security: [],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['email', 'password'],
+                  properties: {
+                    email: { type: 'string' },
+                    password: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
           responses: {
-            '302': { description: 'Redirects to Google OAuth' },
+            '200': { description: 'Signed in; sets session cookie' },
+            '401': { description: 'Invalid email or password' },
           },
         },
       },
-      '/api/auth/callback': {
-        get: {
-          summary: 'Handle Google OAuth callback',
+      '/api/auth/register': {
+        post: {
+          summary: 'Register the first admin (or public register if enabled)',
           security: [],
           responses: {
-            '302': { description: 'Redirects back to the app after login flow' },
+            '201': { description: 'Registered and signed in' },
+            '403': { description: 'Registration is closed' },
           },
+        },
+      },
+      '/api/auth/setup-status': {
+        get: {
+          summary: 'Whether bootstrap registration is open',
+          security: [],
+          responses: { '200': { description: 'bootstrap / publicRegister flags' } },
+        },
+      },
+      '/api/auth/forgot-password': {
+        post: {
+          summary: 'Request a password-reset email',
+          security: [],
+          responses: { '200': { description: 'Always 200 if the body is valid (does not reveal whether the email exists)' } },
+        },
+      },
+      '/api/auth/reset-password': {
+        post: {
+          summary: 'Set a new password with a reset token',
+          security: [],
+          responses: { '200': { description: 'Password updated and signed in' }, '400': { description: 'Invalid or expired token' } },
         },
       },
       '/api/auth/logout': {
@@ -1317,9 +1468,9 @@ function openApiSpec(serverUrl: string) {
       },
       '/api/files/{path}': {
         get: {
-          summary: 'Proxy an uploaded file from R2',
-          description: 'Authenticated file proxy used for image display.',
-          parameters: [{ name: 'path', in: 'path', required: true, schema: { type: 'string' }, description: 'R2 object key after /api/files/' }],
+          summary: 'Proxy an uploaded file',
+          description: 'Authenticated file proxy used for image display. Files are stored on the server disk (not R2).',
+          parameters: [{ name: 'path', in: 'path', required: true, schema: { type: 'string' }, description: 'Storage key after /api/files/' }],
           responses: {
             '200': { description: 'File stream' },
             '404': { description: 'File not found' },
@@ -1329,7 +1480,7 @@ function openApiSpec(serverUrl: string) {
       '/api/upload/image': {
         post: {
           summary: 'Upload image',
-          description: 'Upload an image file (thumb + display). Returns R2 storage paths. Use the returned paths to set image field values on records. Requires write permission.',
+          description: 'Upload an image file (thumb + display). Returns storage paths. Use the returned paths to set image field values on records. Requires write permission.',
           security: [{ ApiKeyAuth: [] }],
           requestBody: {
             required: true,
