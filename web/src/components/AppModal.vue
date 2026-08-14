@@ -2,7 +2,9 @@
   <n-modal
     v-model:show="visible"
     :mask-closable="true"
+    :close-on-esc="true"
     :bordered="false"
+    @mask-click="visible = false"
     @after-enter="emit('after-enter')"
   >
     <div class="modal-wrap" :style="wrapStyle">

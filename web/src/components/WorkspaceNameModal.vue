@@ -1,34 +1,35 @@
 <template>
-  <n-modal v-model:show="visible" :mask-closable="true" :auto-focus="false">
-    <div class="name-sheet">
-      <div class="name-kicker">{{ kicker }}</div>
-      <h3 class="name-title">{{ title }}</h3>
-      <label class="name-field">
-        <span class="name-label">Name</span>
-        <input
-          ref="inputRef"
-          v-model="draft"
-          class="name-input"
-          :placeholder="placeholder"
-          maxlength="80"
-          @keyup.enter="confirm"
-          @keyup.escape="visible = false"
-        />
-      </label>
-      <p class="name-hint">{{ hint }}</p>
-      <div class="name-actions">
-        <button type="button" class="btn ghost" @click="visible = false">Cancel</button>
-        <button type="button" class="btn solid" :disabled="!draft.trim() || submitting" @click="confirm">
-          {{ confirmLabel }}
-        </button>
+  <Teleport to="body">
+    <div v-if="visible" class="sheet-root" @mousedown.self="close">
+      <div class="name-sheet" role="dialog" aria-modal="true" @mousedown.stop>
+        <div class="name-kicker">{{ kicker }}</div>
+        <h3 class="name-title">{{ title }}</h3>
+        <label class="name-field">
+          <span class="name-label">Name</span>
+          <input
+            ref="inputRef"
+            v-model="draft"
+            class="name-input"
+            :placeholder="placeholder"
+            maxlength="80"
+            @keyup.enter="confirm"
+            @keyup.escape="close"
+          />
+        </label>
+        <p class="name-hint">{{ hint }}</p>
+        <div class="name-actions">
+          <button type="button" class="btn ghost" @click="close">Cancel</button>
+          <button type="button" class="btn solid" :disabled="!draft.trim() || submitting" @click="confirm">
+            {{ confirmLabel }}
+          </button>
+        </div>
       </div>
     </div>
-  </n-modal>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
-import { NModal } from 'naive-ui'
 
 const visible = defineModel<boolean>('show', { default: false })
 const props = withDefaults(defineProps<{
@@ -61,17 +62,33 @@ watch(visible, async (open) => {
   inputRef.value?.select()
 })
 
+function close() {
+  visible.value = false
+}
+
 function confirm() {
   const name = draft.value.trim()
   if (!name || submitting.value) return
   submitting.value = true
   emit('confirm', name)
 }
+
+defineExpose({ resetSubmitting: () => { submitting.value = false } })
 </script>
 
 <style scoped>
+.sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(28, 26, 22, 0.38);
+  padding: 16px;
+}
 .name-sheet {
-  width: min(400px, calc(100vw - 32px));
+  width: min(400px, 100%);
   background: #fff;
   border-radius: 10px;
   padding: 22px 22px 18px;

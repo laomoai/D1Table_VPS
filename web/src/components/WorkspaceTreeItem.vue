@@ -8,16 +8,18 @@
         'drop-above': dropPosition === 'above' && dropTargetId === node.id,
         'drop-child': dropPosition === 'child' && dropTargetId === node.id,
         folder: node.kind === 'folder',
+        menuOpen: menuOpen,
       }"
       draggable="true"
       @click="onClick"
+      @contextmenu.prevent="openMenu"
       @dragstart="onDragStart"
       @dragend="onDragEnd"
       @dragover.prevent="onDragOver"
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
     >
-      <span class="ws-drag-handle" title="Drag">⋮⋮</span>
+      <span class="ws-drag-handle" title="Drag to move">⋮⋮</span>
       <span
         v-if="node.kind === 'folder' || hasChildren"
         class="ws-arrow"
@@ -33,28 +35,51 @@
       <span class="ws-title-wrap">
         <HoverTooltipText :text="node.title || 'Untitled'" class-name="ws-title" />
       </span>
-      <div v-if="!manageMode" class="ws-actions">
+      <div class="ws-actions" @click.stop>
         <button
           v-if="node.kind === 'folder'"
           class="ws-action-btn"
           title="Add inside"
-          @click.stop="emit('add-here', node.id)"
+          @click="emit('add-here', node.id)"
         >+</button>
-      </div>
-      <div v-else class="ws-manage" @click.stop>
-        <button class="ws-manage-btn" title="Rename" @click="emit('rename', node)">Rename</button>
-        <select class="ws-move" :value="node.parent_id ?? ''" @change="onMoveSelect">
-          <option value="">Workspace root</option>
-          <option v-for="opt in moveTargets" :key="opt.id" :value="opt.id">{{ opt.title }}</option>
-        </select>
-        <button
-          v-if="node.kind === 'folder'"
-          class="ws-manage-btn danger"
-          title="Delete folder"
-          @click="emit('delete-folder', node.id)"
-        >Delete</button>
+        <button class="ws-action-btn more" title="More" @click="openMenu">•••</button>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="menuOpen"
+        class="ws-menu-scrim"
+        @mousedown="menuOpen = false"
+      >
+        <div
+          class="ws-menu"
+          :style="menuStyle"
+          @mousedown.stop
+        >
+          <button v-if="node.kind === 'folder'" class="ws-menu-item" @click="onRename">Rename</button>
+          <div class="ws-menu-item has-sub" @mouseenter="showMove = true" @mouseleave="showMove = false">
+            <span>Move to</span>
+            <span class="ws-caret">›</span>
+            <div v-if="showMove" class="ws-submenu">
+              <button class="ws-menu-item" @click="onMove(null)">Workspace root</button>
+              <button
+                v-for="opt in moveTargets"
+                :key="opt.id"
+                class="ws-menu-item"
+                @click="onMove(opt.id)"
+              >{{ opt.title }}</button>
+              <div v-if="moveTargets.length === 0" class="ws-menu-empty">No other folders</div>
+            </div>
+          </div>
+          <template v-if="node.kind === 'folder'">
+            <div class="ws-menu-sep" />
+            <button class="ws-menu-item danger" @click="onDelete">Delete</button>
+          </template>
+        </div>
+      </div>
+    </Teleport>
+
     <div v-if="hasChildren && expandedIds.has(node.id)" class="ws-children">
       <WorkspaceTreeItem
         v-for="child in children"
@@ -68,7 +93,6 @@
         :item-style="itemStyle"
         :drop-target-id="dropTargetId"
         :drop-position="dropPosition"
-        :manage-mode="manageMode"
         :folder-options="folderOptions"
         @select="emit('select', $event)"
         @toggle="emit('toggle', $event)"
@@ -84,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { WorkspaceNode } from '@/api/client'
 import HoverTooltipText from './HoverTooltipText.vue'
 import IonIcon from './IonIcon.vue'
@@ -99,7 +123,6 @@ const props = defineProps<{
   itemStyle?: string | Record<string, string>
   dropTargetId?: string | null
   dropPosition?: 'above' | 'child' | null
-  manageMode?: boolean
   folderOptions?: { id: string; title: string }[]
 }>()
 
@@ -114,6 +137,10 @@ const emit = defineEmits<{
   'update:drop-state': [state: { id: string | null; position: 'above' | 'child' | null }]
 }>()
 
+const menuOpen = ref(false)
+const showMove = ref(false)
+const menuPos = ref({ x: 0, y: 0 })
+
 const hasChildren = computed(() => props.children.length > 0)
 const isActive = computed(() => {
   if (props.node.kind === 'table') return props.node.ref === props.activeTable
@@ -125,14 +152,37 @@ const defaultIcon = computed(() => {
   if (props.node.kind === 'table') return 'GridOutline'
   return 'DocumentOutline'
 })
-
 const moveTargets = computed(() =>
   (props.folderOptions ?? []).filter((f) => f.id !== props.node.id),
 )
+const menuStyle = computed(() => ({
+  left: `${menuPos.value.x}px`,
+  top: `${menuPos.value.y}px`,
+}))
 
-function onMoveSelect(e: Event) {
-  const value = (e.target as HTMLSelectElement).value
-  emit('move', { id: props.node.id, parent_id: value || null })
+function openMenu(e: MouseEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  const x = Math.min(e.clientX, window.innerWidth - 200)
+  const y = Math.min(e.clientY, window.innerHeight - 180)
+  menuPos.value = { x, y }
+  showMove.value = false
+  menuOpen.value = true
+}
+
+function onRename() {
+  menuOpen.value = false
+  emit('rename', props.node)
+}
+
+function onMove(parentId: string | null) {
+  menuOpen.value = false
+  emit('move', { id: props.node.id, parent_id: parentId })
+}
+
+function onDelete() {
+  menuOpen.value = false
+  emit('delete-folder', props.node.id)
 }
 
 function onClick() {
@@ -195,7 +245,8 @@ function onDrop(e: DragEvent) {
   color: #37352f;
   border: 2px solid transparent;
 }
-.ws-item:hover { background: rgba(55, 53, 47, 0.06); }
+.ws-item:hover,
+.ws-item.menuOpen { background: rgba(55, 53, 47, 0.06); }
 .ws-item.active { background: rgba(55, 53, 47, 0.1); font-weight: 500; }
 .ws-item.drop-above { border-top: 2px solid #2383e2; border-radius: 0; }
 .ws-item.drop-child { background: rgba(35, 131, 226, 0.1); border: 2px solid rgba(35, 131, 226, 0.3); }
@@ -208,7 +259,8 @@ function onDrop(e: DragEvent) {
   flex-shrink: 0;
   letter-spacing: -2px;
 }
-.ws-item:hover .ws-drag-handle { color: #c4c4c0; }
+.ws-item:hover .ws-drag-handle,
+.ws-item.menuOpen .ws-drag-handle { color: #c4c4c0; }
 .ws-arrow {
   font-size: 11px;
   color: #a3a19d;
@@ -222,42 +274,72 @@ function onDrop(e: DragEvent) {
 .ws-icon { flex-shrink: 0; }
 .ws-emoji { font-size: 14px; line-height: 1; }
 .ws-title-wrap { flex: 1; min-width: 0; overflow: hidden; }
-.ws-actions { display: none; gap: 2px; flex-shrink: 0; }
-.ws-item:hover .ws-actions { display: flex; }
+.ws-actions {
+  display: none;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.ws-item:hover .ws-actions,
+.ws-item.menuOpen .ws-actions { display: flex; }
 .ws-action-btn {
   background: none; border: none;
-  padding: 0 3px; font-size: 14px;
+  padding: 0 4px; font-size: 13px;
   color: #a3a19d; cursor: pointer;
-  border-radius: 2px;
+  border-radius: 3px; line-height: 1.4;
 }
+.ws-action-btn.more { letter-spacing: 0.5px; font-size: 11px; }
 .ws-action-btn:hover { color: #37352f; background: rgba(55,53,47,0.08); }
-.ws-manage {
+.ws-children { padding-left: 16px; }
+</style>
+
+<style>
+.ws-menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 4100;
+}
+.ws-menu {
+  position: fixed;
+  min-width: 168px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #eceae4;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(30, 28, 24, 0.14);
+}
+.ws-submenu {
+  position: absolute;
+  left: calc(100% - 4px);
+  top: -4px;
+  min-width: 168px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #eceae4;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(30, 28, 24, 0.14);
+}
+.ws-menu-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  max-width: 58%;
-}
-.ws-manage-btn {
-  background: #fff;
-  border: 1px solid #e4e0d8;
-  border-radius: 4px;
-  font-size: 11px;
-  padding: 1px 6px;
-  color: #5c5852;
+  justify-content: space-between;
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: #2c2a26;
+  border-radius: 5px;
   cursor: pointer;
 }
-.ws-manage-btn:hover { background: #f4f1ea; }
-.ws-manage-btn.danger { color: #b42318; border-color: #f0c9c4; }
-.ws-manage-btn.danger:hover { background: #fff1f0; }
-.ws-move {
-  max-width: 88px;
-  height: 20px;
-  font-size: 11px;
-  border: 1px solid #e4e0d8;
-  border-radius: 4px;
-  color: #5c5852;
-  background: #fff;
-}
-.ws-children { padding-left: 16px; }
+.ws-menu-item:hover,
+.ws-menu-item.has-sub:hover { background: #f4f1ea; }
+.ws-menu-item.danger { color: #b42318; }
+.ws-menu-item.danger:hover { background: #fff1f0; }
+.ws-caret { color: #b0aaa2; font-size: 12px; }
+.ws-menu-sep { height: 1px; background: #efece6; margin: 4px 6px; }
+.ws-menu-empty { padding: 8px 10px; font-size: 12px; color: #9a968e; }
 </style>

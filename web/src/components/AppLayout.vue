@@ -9,18 +9,12 @@
 
       <div class="panel-header">
         <input v-model="workspaceSearch" class="panel-search-input" placeholder="Search..." />
-        <button
-          class="panel-manage-btn"
-          :class="{ on: manageMode }"
-          title="Rename, move, or delete"
-          @click="manageMode = !manageMode"
-        >{{ manageMode ? 'Done' : 'Manage' }}</button>
-        <div v-if="!manageMode" class="add-wrap">
-          <button class="panel-add-btn" title="Add" @click="showAddMenu = !showAddMenu">+</button>
-          <div v-if="showAddMenu" class="add-menu" @click.stop>
+        <div class="add-wrap" ref="addWrapRef">
+          <button class="panel-add-btn" title="Add" @click="toggleAddMenu">+</button>
+          <div v-if="showAddMenu" class="add-menu">
             <button @click="openFolderModal()">Folder</button>
             <button @click="openCreateTable()">Table</button>
-            <button @click="addNote()">Note</button>
+            <button @click="openNoteModal()">Note</button>
           </div>
         </div>
       </div>
@@ -44,7 +38,6 @@
             :item-style="tableItemStyle"
             :drop-target-id="wsDropState.id"
             :drop-position="wsDropState.position"
-            :manage-mode="manageMode"
             :folder-options="folderOptions"
             @select="selectWorkspaceNode"
             @toggle="toggleWorkspaceFolder"
@@ -119,11 +112,14 @@
     <NotePreviewModal />
     <CreateTableModal v-model:show="showCreateTable" :folder-id="createTargetFolder" @created="onTableCreated" />
     <WorkspaceNameModal
-      v-model:show="showFolderModal"
-      :title="folderModalMode === 'rename' ? 'Rename folder' : 'New folder'"
-      :confirm-label="folderModalMode === 'rename' ? 'Save' : 'Create'"
+      v-model:show="showNameModal"
+      :title="nameModalTitle"
+      :kicker="nameModalKind === 'note' ? 'Note' : 'Workspace'"
+      :hint="nameModalHint"
+      :placeholder="nameModalPlaceholder"
+      :confirm-label="nameModalConfirm"
       :initial="folderModalInitial"
-      @confirm="submitFolderModal"
+      @confirm="submitNameModal"
     />
   </div>
 </template>
@@ -161,10 +157,10 @@ const RECENT_KEY = 'd1table_recent_access'
 
 const workspaceSearch = ref('')
 const showAddMenu = ref(false)
-const manageMode = ref(false)
+const addWrapRef = ref<HTMLElement | null>(null)
 const showCreateTable = ref(false)
-const showFolderModal = ref(false)
-const folderModalMode = ref<'create' | 'rename'>('create')
+const showNameModal = ref(false)
+const nameModalKind = ref<'folder' | 'rename' | 'note'>('folder')
 const folderModalInitial = ref('')
 const renameTargetId = ref<string | null>(null)
 const createTargetFolder = ref<string | null>(null)
@@ -221,6 +217,24 @@ const folderOptions = computed(() =>
   (workspaceNodes.value ?? []).filter((n) => n.kind === 'folder').map((n) => ({ id: n.id, title: n.title })),
 )
 
+const nameModalTitle = computed(() => {
+  if (nameModalKind.value === 'rename') return 'Rename folder'
+  if (nameModalKind.value === 'note') return 'New note'
+  return 'New folder'
+})
+const nameModalHint = computed(() => {
+  if (nameModalKind.value === 'note') return 'Opens in the editor after you name it.'
+  return 'Folders only organize the sidebar. They have no page of their own.'
+})
+const nameModalPlaceholder = computed(() => (
+  nameModalKind.value === 'note' ? 'e.g. Meeting notes' : 'e.g. Clients, Research, Archive'
+))
+const nameModalConfirm = computed(() => (nameModalKind.value === 'rename' ? 'Save' : 'Create'))
+
+function toggleAddMenu() {
+  showAddMenu.value = !showAddMenu.value
+}
+
 function onAddHere(folderId: string) {
   createTargetFolder.value = folderId
   showAddMenu.value = true
@@ -228,29 +242,44 @@ function onAddHere(folderId: string) {
 
 function openFolderModal() {
   showAddMenu.value = false
-  folderModalMode.value = 'create'
+  nameModalKind.value = 'folder'
   folderModalInitial.value = ''
   renameTargetId.value = null
-  showFolderModal.value = true
+  showNameModal.value = true
+}
+
+function openNoteModal() {
+  showAddMenu.value = false
+  nameModalKind.value = 'note'
+  folderModalInitial.value = ''
+  showNameModal.value = true
 }
 
 function openRenameModal(node: WorkspaceNode) {
   if (node.kind !== 'folder') return
-  folderModalMode.value = 'rename'
+  nameModalKind.value = 'rename'
   folderModalInitial.value = node.title
   renameTargetId.value = node.id
-  showFolderModal.value = true
+  showNameModal.value = true
 }
 
-async function submitFolderModal(name: string) {
+async function submitNameModal(name: string) {
   try {
-    if (folderModalMode.value === 'rename' && renameTargetId.value) {
+    if (nameModalKind.value === 'rename' && renameTargetId.value) {
       await workspaceApi.renameFolder(renameTargetId.value, name)
+    } else if (nameModalKind.value === 'note') {
+      const result = await notesApi.createNote({
+        title: name,
+        folder_id: createTargetFolder.value,
+      })
+      createTargetFolder.value = null
+      queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
+      router.push(`/notes/${result.id}`)
     } else {
       await workspaceApi.createFolder({ title: name, parent_id: createTargetFolder.value })
       createTargetFolder.value = null
     }
-    showFolderModal.value = false
+    showNameModal.value = false
     queryClient.invalidateQueries({ queryKey: ['workspace'] })
   } catch (err) {
     message.error((err as Error).message)
@@ -275,22 +304,6 @@ function onTableCreated(name: string) {
   queryClient.invalidateQueries({ queryKey: ['workspace'] })
   router.push(`/tables/${name}`)
   createTargetFolder.value = null
-}
-
-async function addNote(parentFolder?: string) {
-  showAddMenu.value = false
-  try {
-    const result = await notesApi.createNote({
-      title: 'Untitled',
-      folder_id: parentFolder ?? createTargetFolder.value,
-    })
-    createTargetFolder.value = null
-    queryClient.invalidateQueries({ queryKey: ['workspace'] })
-    queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
-    router.push(`/notes/${result.id}`)
-  } catch (err) {
-    message.error((err as Error).message)
-  }
 }
 
 function onDeleteFolder(id: string) {
@@ -322,6 +335,16 @@ async function handleWorkspaceReorder(payload: { dragId: string; dropId: string;
     message.error((err as Error).message)
   }
 }
+
+function onGlobalPointerDown(e: PointerEvent) {
+  const target = e.target as Node
+  if (showAddMenu.value && addWrapRef.value && !addWrapRef.value.contains(target)) {
+    showAddMenu.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('pointerdown', onGlobalPointerDown, true))
+onUnmounted(() => document.removeEventListener('pointerdown', onGlobalPointerDown, true))
 
 watch(() => route.path, () => { showAddMenu.value = false })
 
@@ -1107,23 +1130,6 @@ async function logout() {
   justify-content: center;
   flex-shrink: 0;
   transition: all 0.1s;
-}
-.panel-manage-btn {
-  flex-shrink: 0;
-  height: 26px;
-  padding: 0 8px;
-  border-radius: 3px;
-  border: 1px solid #e9e9e7;
-  background: #fff;
-  color: #787774;
-  font-size: 12px;
-  cursor: pointer;
-}
-.panel-manage-btn:hover { background: rgba(55, 53, 47, 0.06); color: #37352f; }
-.panel-manage-btn.on {
-  background: #2c2a26;
-  border-color: #2c2a26;
-  color: #fff;
 }
 .add-wrap { position: relative; flex-shrink: 0; }
 .add-menu {
