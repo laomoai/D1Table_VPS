@@ -539,11 +539,6 @@ notes.post('/:id/archive', requireWriteMiddleware, async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Note not found' } }, 404)
   }
 
-  // Cannot archive root notes (notes without parent)
-  if (!target.parent_id) {
-    return c.json({ error: { code: 'INVALID_OPERATION', message: 'Cannot archive root notes directly' } }, 400)
-  }
-
   const allIds = await collectDescendants(c.env.DB, id, teamId, allowedNoteIds)
 
   const now = Math.floor(Date.now() / 1000)

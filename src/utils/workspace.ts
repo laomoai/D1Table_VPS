@@ -57,6 +57,67 @@ export async function assertFolder(
   return node
 }
 
+export async function ensureFolderForGroup(
+  db: SqliteDatabase,
+  opts: { groupId: number; title: string; teamId?: number; ownerId?: number | null },
+): Promise<WorkspaceNode> {
+  const existing = await db.prepare(
+    `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id FROM _workspace_nodes WHERE kind = 'folder' AND group_id = ?`,
+  ).bind(opts.groupId).first<WorkspaceNode>()
+  if (existing) return { ...existing, icon: null }
+
+  const id = newWorkspaceId('folder')
+  const sort = await nextSort(db, opts.teamId, null)
+  await db.prepare(
+    `INSERT INTO _workspace_nodes (id, kind, parent_id, sort_order, title, ref, group_id, team_id, owner_id)
+     VALUES (?, 'folder', NULL, ?, ?, NULL, ?, ?, ?)`,
+  ).bind(id, sort, opts.title, opts.groupId, opts.teamId ?? null, opts.ownerId ?? null).run()
+  return {
+    id, kind: 'folder', parent_id: null, sort_order: sort,
+    title: opts.title, ref: null, group_id: opts.groupId, team_id: opts.teamId ?? null, icon: null,
+  }
+}
+
+export async function syncFolderTitleByGroup(db: SqliteDatabase, groupId: number, title: string): Promise<void> {
+  await db.prepare(
+    `UPDATE _workspace_nodes SET title = ?, updated_at = unixepoch() WHERE kind = 'folder' AND group_id = ?`,
+  ).bind(title, groupId).run()
+}
+
+export async function removeFolderByGroup(db: SqliteDatabase, groupId: number): Promise<void> {
+  const folder = await db.prepare(
+    `SELECT id FROM _workspace_nodes WHERE kind = 'folder' AND group_id = ?`,
+  ).bind(groupId).first<{ id: string }>()
+  if (!folder) return
+  await db.batch([
+    db.prepare(`UPDATE _workspace_nodes SET parent_id = NULL, updated_at = unixepoch() WHERE parent_id = ?`).bind(folder.id),
+    db.prepare(`DELETE FROM _workspace_nodes WHERE id = ?`).bind(folder.id),
+  ])
+}
+
+export async function backfillMissingGroupFolders(db: SqliteDatabase, teamId?: number): Promise<void> {
+  const sql = teamId !== undefined
+    ? `SELECT g.id, g.name, g.team_id, g.owner_id FROM _groups g
+       WHERE g.team_id = ? AND NOT EXISTS (
+         SELECT 1 FROM _workspace_nodes n WHERE n.kind = 'folder' AND n.group_id = g.id
+       )`
+    : `SELECT g.id, g.name, g.team_id, g.owner_id FROM _groups g
+       WHERE NOT EXISTS (
+         SELECT 1 FROM _workspace_nodes n WHERE n.kind = 'folder' AND n.group_id = g.id
+       )`
+  const rows = teamId !== undefined
+    ? await db.prepare(sql).bind(teamId).all<{ id: number; name: string; team_id: number | null; owner_id: number | null }>()
+    : await db.prepare(sql).all<{ id: number; name: string; team_id: number | null; owner_id: number | null }>()
+  for (const g of rows.results) {
+    await ensureFolderForGroup(db, {
+      groupId: g.id,
+      title: g.name,
+      teamId: g.team_id ?? undefined,
+      ownerId: g.owner_id,
+    })
+  }
+}
+
 export async function createFolder(
   db: SqliteDatabase,
   opts: { title: string; parentId?: string | null; teamId?: number; ownerId?: number | null },

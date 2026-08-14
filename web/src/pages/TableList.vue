@@ -551,6 +551,7 @@ async function createGroup() {
   if (!newGroupName.value.trim()) return
   try {
     const result = await api.createGroup(newGroupName.value.trim())
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
     if (newGroupTables.value.size > 0) {
       await api.setGroupTables(result.id, [...newGroupTables.value])
     }

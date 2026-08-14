@@ -5,7 +5,7 @@
       <div class="kb-header">
         <div>
           <h1 class="kb-title">Knowledge Base</h1>
-          <p class="kb-desc">Archived notes organized by root topics</p>
+          <p class="kb-desc">Notes you archived from the sidebar. They stay here until you restore them.</p>
         </div>
       </div>
 
@@ -62,7 +62,7 @@
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c8c7c5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         </div>
         <p class="kb-empty-text">{{ searchQuery ? 'No matching results' : 'No archived notes yet' }}</p>
-        <p class="kb-empty-hint">Archive notes from the sidebar to build your knowledge base</p>
+        <p class="kb-empty-hint">Hover a note in the sidebar, open •••, then choose Archive to Knowledge Base.</p>
       </div>
     </div>
   </div>

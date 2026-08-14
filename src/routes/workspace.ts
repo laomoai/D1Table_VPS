@@ -3,6 +3,7 @@ import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware } from '../middleware/auth'
 import { getAccessibleNoteIds } from '../utils/note-access'
 import {
+  backfillMissingGroupFolders,
   createFolder,
   deleteEmptyFolder,
   filterVisibleNodes,
@@ -14,6 +15,7 @@ import {
 const workspace = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
 workspace.get('/tree', async (c) => {
+  await backfillMissingGroupFolders(c.env.DB, c.get('teamId'))
   const nodes = await listWorkspaceNodes(c.env.DB, c.get('teamId'))
   const allowedNoteIds = await getAccessibleNoteIds(c.env.DB, c.get('teamId'), c.get('allowedNoteRootIds'))
   const visible = filterVisibleNodes(nodes, c.get('allowedTables') ?? null, allowedNoteIds)

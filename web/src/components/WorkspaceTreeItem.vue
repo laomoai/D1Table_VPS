@@ -72,6 +72,10 @@
               <div v-if="moveTargets.length === 0" class="ws-menu-empty">No other folders</div>
             </div>
           </div>
+          <template v-if="node.kind === 'note'">
+            <div class="ws-menu-sep" />
+            <button class="ws-menu-item" @click="onArchive">Archive to Knowledge Base</button>
+          </template>
           <template v-if="node.kind === 'folder'">
             <div class="ws-menu-sep" />
             <button class="ws-menu-item danger" @click="onDelete">Delete</button>
@@ -100,6 +104,7 @@
         @rename="emit('rename', $event)"
         @move="emit('move', $event)"
         @delete-folder="emit('delete-folder', $event)"
+        @archive="emit('archive', $event)"
         @reorder="emit('reorder', $event)"
         @update:drop-state="emit('update:drop-state', $event)"
       />
@@ -133,6 +138,7 @@ const emit = defineEmits<{
   rename: [node: WorkspaceNode]
   move: [payload: { id: string; parent_id: string | null }]
   'delete-folder': [id: string]
+  archive: [noteId: string]
   reorder: [payload: { dragId: string; dropId: string; mode: 'above' | 'child' }]
   'update:drop-state': [state: { id: string | null; position: 'above' | 'child' | null }]
 }>()
@@ -183,6 +189,11 @@ function onMove(parentId: string | null) {
 function onDelete() {
   menuOpen.value = false
   emit('delete-folder', props.node.id)
+}
+
+function onArchive() {
+  menuOpen.value = false
+  if (props.node.ref) emit('archive', props.node.ref)
 }
 
 function onClick() {

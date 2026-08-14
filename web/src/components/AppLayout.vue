@@ -45,6 +45,7 @@
             @rename="openRenameModal"
             @move="onManageMove"
             @delete-folder="onDeleteFolder"
+            @archive="onArchiveNote"
             @reorder="handleWorkspaceReorder"
             @update:drop-state="wsDropState = $event"
           />
@@ -304,6 +305,26 @@ function onTableCreated(name: string) {
   queryClient.invalidateQueries({ queryKey: ['workspace'] })
   router.push(`/tables/${name}`)
   createTargetFolder.value = null
+}
+
+function onArchiveNote(noteId: string) {
+  dialog.warning({
+    title: 'Archive to Knowledge Base',
+    content: 'This note leaves the sidebar. You can restore it from Knowledge Base.',
+    positiveText: 'Archive',
+    negativeText: 'Cancel',
+    onPositiveClick: async () => {
+      try {
+        await notesApi.archiveNote(noteId)
+        queryClient.invalidateQueries({ queryKey: ['workspace'] })
+        queryClient.invalidateQueries({ queryKey: ['notes'] })
+        if (route.params.noteId === noteId) router.push('/')
+        message.success('Moved to Knowledge Base')
+      } catch (err) {
+        message.error((err as Error).message)
+      }
+    },
+  })
 }
 
 function onDeleteFolder(id: string) {

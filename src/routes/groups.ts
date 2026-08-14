@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware, teamFilter } from '../middleware/auth'
+import { ensureFolderForGroup, removeFolderByGroup, syncFolderTitleByGroup } from '../utils/workspace'
 
 const groups = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -78,7 +79,14 @@ groups.post('/', async (c) => {
       .bind(body.name.trim(), body.sort_order ?? 0, c.get('userId') ?? null, c.get('teamId') ?? null)
       .run()
 
-    return c.json({ data: { id: result.meta.last_row_id, name: body.name.trim() } }, 201)
+    const groupId = Number(result.meta.last_row_id)
+    await ensureFolderForGroup(c.env.DB, {
+      groupId,
+      title: body.name.trim(),
+      teamId: c.get('teamId'),
+      ownerId: c.get('userId') ?? null,
+    })
+    return c.json({ data: { id: groupId, name: body.name.trim() } }, 201)
   } catch (err) {
     const msg = (err as Error).message ?? ''
     if (msg.includes('UNIQUE constraint')) {
@@ -130,6 +138,10 @@ groups.patch('/:id', async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Group not found' } }, 404)
   }
 
+  if (body.name?.trim()) {
+    await syncFolderTitleByGroup(c.env.DB, groupId, body.name.trim())
+  }
+
   return c.json({ data: { success: true } })
 })
 
@@ -158,6 +170,7 @@ groups.delete('/:id', async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Group not found' } }, 404)
   }
 
+  await removeFolderByGroup(c.env.DB, groupId)
   return c.json({ data: { success: true } })
 })
 
