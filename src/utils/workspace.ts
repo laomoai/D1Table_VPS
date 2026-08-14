@@ -95,6 +95,70 @@ export async function removeFolderByGroup(db: SqliteDatabase, groupId: number): 
   ])
 }
 
+export async function attachTablesToGroupFolder(
+  db: SqliteDatabase,
+  groupId: number,
+  tableNames: string[],
+): Promise<void> {
+  const folder = await db.prepare(
+    `SELECT id FROM _workspace_nodes WHERE kind = 'folder' AND group_id = ?`,
+  ).bind(groupId).first<{ id: string }>()
+  if (!folder) return
+
+  const selected = new Set(tableNames)
+  const current = await db.prepare(
+    `SELECT id, ref FROM _workspace_nodes WHERE kind = 'table' AND parent_id = ?`,
+  ).bind(folder.id).all<{ id: string; ref: string | null }>()
+
+  for (const name of tableNames) {
+    await db.prepare(
+      `UPDATE _workspace_nodes SET parent_id = ?, updated_at = unixepoch() WHERE kind = 'table' AND ref = ?`,
+    ).bind(folder.id, name).run()
+  }
+  for (const row of current.results) {
+    if (row.ref && !selected.has(row.ref)) {
+      await db.prepare(
+        `UPDATE _workspace_nodes SET parent_id = NULL, updated_at = unixepoch() WHERE id = ?`,
+      ).bind(row.id).run()
+    }
+  }
+}
+
+export async function backfillTableFolderParents(db: SqliteDatabase, teamId?: number): Promise<void> {
+  const sql = teamId !== undefined
+    ? `SELECT t.id AS node_id, (
+         SELECT n.id FROM _group_tables gt
+         JOIN _workspace_nodes n ON n.kind = 'folder' AND n.group_id = gt.group_id
+         JOIN _groups g ON g.id = gt.group_id
+         WHERE gt.table_name = t.ref
+         ORDER BY g.sort_order ASC, g.id ASC
+         LIMIT 1
+       ) AS folder_id
+       FROM _workspace_nodes t
+       WHERE t.kind = 'table' AND t.parent_id IS NULL AND t.team_id = ?`
+    : `SELECT t.id AS node_id, (
+         SELECT n.id FROM _group_tables gt
+         JOIN _workspace_nodes n ON n.kind = 'folder' AND n.group_id = gt.group_id
+         JOIN _groups g ON g.id = gt.group_id
+         WHERE gt.table_name = t.ref
+         ORDER BY g.sort_order ASC, g.id ASC
+         LIMIT 1
+       ) AS folder_id
+       FROM _workspace_nodes t
+       WHERE t.kind = 'table' AND t.parent_id IS NULL`
+
+  const rows = teamId !== undefined
+    ? await db.prepare(sql).bind(teamId).all<{ node_id: string; folder_id: string | null }>()
+    : await db.prepare(sql).all<{ node_id: string; folder_id: string | null }>()
+
+  for (const row of rows.results) {
+    if (!row.folder_id) continue
+    await db.prepare(
+      `UPDATE _workspace_nodes SET parent_id = ?, updated_at = unixepoch() WHERE id = ?`,
+    ).bind(row.folder_id, row.node_id).run()
+  }
+}
+
 export async function backfillMissingGroupFolders(db: SqliteDatabase, teamId?: number): Promise<void> {
   const sql = teamId !== undefined
     ? `SELECT g.id, g.name, g.team_id, g.owner_id FROM _groups g

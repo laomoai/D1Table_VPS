@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware, teamFilter } from '../middleware/auth'
-import { ensureFolderForGroup, removeFolderByGroup, syncFolderTitleByGroup } from '../utils/workspace'
+import { attachTablesToGroupFolder, ensureFolderForGroup, removeFolderByGroup, syncFolderTitleByGroup } from '../utils/workspace'
 
 const groups = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -236,6 +236,7 @@ groups.put('/:id/tables', async (c) => {
   }
 
   await c.env.DB.batch(stmts)
+  await attachTablesToGroupFolder(c.env.DB, groupId, body.tables)
 
   return c.json({ data: { success: true } })
 })

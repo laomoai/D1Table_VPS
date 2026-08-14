@@ -506,6 +506,7 @@ async function saveEditGroup() {
     await api.setGroupTables(editGroupId.value, [...editGroupTables.value])
     queryClient.invalidateQueries({ queryKey: ['groups'] })
     queryClient.invalidateQueries({ queryKey: ['tables'] })
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
     showEditGroup.value = false
     message.success('Group updated')
   } catch (err) {
@@ -524,6 +525,7 @@ async function deleteGroup() {
       try {
         await api.deleteGroup(editGroupId.value!)
         queryClient.invalidateQueries({ queryKey: ['groups'] })
+        queryClient.invalidateQueries({ queryKey: ['workspace'] })
         showEditGroup.value = false
         message.success('Group deleted')
         if (activeTab.value === editGroupName.value) {
