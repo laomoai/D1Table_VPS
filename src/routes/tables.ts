@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { AuthVariables, Env } from '../types'
+import { ensureTableNode, removeNodeByRef, updateNodeTitleByRef } from '../utils/workspace'
 import { getUserTables, getTableColumns, isValidIdentifier } from '../utils/schema-cache'
 import { requireWriteMiddleware } from '../middleware/auth'
 
@@ -193,6 +194,7 @@ tables.post('/', requireWriteMiddleware, async (c) => {
       link_table?: string
       link_display_field?: string
     }>
+    folder_id?: string | null
   }>()
 
   if (!body.name || !isValidIdentifier(body.name)) {
@@ -305,6 +307,14 @@ tables.post('/', requireWriteMiddleware, async (c) => {
     ...groupStmts,
   ])
 
+  await ensureTableNode(c.env.DB, {
+    tableName: body.name,
+    title: displayTitle,
+    folderId: body.folder_id,
+    teamId: c.get('teamId'),
+    ownerId: c.get('userId') ?? null,
+  })
+
   return c.json({ data: { name: body.name, message: 'Table created successfully' } }, 201)
 })
 
@@ -361,6 +371,11 @@ tables.patch('/:tableName', requireWriteMiddleware, async (c) => {
   await c.env.DB.prepare(
     `UPDATE _meta SET ${setClauses.join(', ')} WHERE table_name = ?`
   ).bind(...values).run()
+
+  const titleUpdate = body.title?.trim()
+  if (titleUpdate) {
+    await updateNodeTitleByRef(c.env.DB, 'table', tableName, titleUpdate)
+  }
 
   return c.json({ data: { success: true } })
 })
@@ -455,6 +470,7 @@ tables.delete('/:tableName', requireWriteMiddleware, async (c) => {
     c.env.DB.prepare(`DELETE FROM _group_tables WHERE table_name = ?`).bind(tableName),
     c.env.DB.prepare(`DELETE FROM _dashboards WHERE table_name = ?`).bind(tableName),
     c.env.DB.prepare(`DELETE FROM _link_meta WHERE source_table = ? OR target_table = ?`).bind(tableName, tableName),
+    c.env.DB.prepare(`DELETE FROM _workspace_nodes WHERE kind = 'table' AND ref = ?`).bind(tableName),
   ])
 
   return c.json({ data: { success: true } })

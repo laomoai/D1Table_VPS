@@ -331,6 +331,34 @@ export interface NoteCreate {
   title?: string
   content?: string
   parent_id?: string
+  folder_id?: string | null
+}
+
+export type WorkspaceKind = 'folder' | 'table' | 'note'
+
+export interface WorkspaceNode {
+  id: string
+  kind: WorkspaceKind
+  parent_id: string | null
+  sort_order: number
+  title: string
+  ref: string | null
+  group_id: number | null
+  team_id: number | null
+  icon: string | null
+}
+
+export const workspaceApi = {
+  getTree: () =>
+    http.get<{ data: WorkspaceNode[] }>('/workspace/tree').then(r => r.data.data),
+  createFolder: (data: { title: string; parent_id?: string | null }) =>
+    http.post<{ data: WorkspaceNode }>('/workspace/folders', data).then(r => r.data.data),
+  renameFolder: (id: string, title: string) =>
+    http.patch(`/workspace/folders/${id}`, { title }),
+  deleteFolder: (id: string) =>
+    http.delete(`/workspace/folders/${id}`),
+  move: (data: { id: string; parent_id: string | null; sort_order?: number }) =>
+    http.post('/workspace/move', data),
 }
 
 export interface NoteUpdate {

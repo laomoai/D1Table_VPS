@@ -128,6 +128,7 @@ import AppModal from './AppModal.vue'
 import IonIcon from './IonIcon.vue'
 
 const visible = defineModel<boolean>('show', { default: false })
+const props = defineProps<{ folderId?: string | null }>()
 const emit = defineEmits<{ created: [name: string] }>()
 
 const message = useMessage()
@@ -293,6 +294,7 @@ async function handleSubmit() {
     await http.post('/tables', {
       name: tableName,
       title: form.value.displayName.trim(),
+      folder_id: props.folderId ?? undefined,
       columns: cols.map(c => ({
         name: generateColName(),
         title: c.displayName.trim(),
@@ -306,6 +308,7 @@ async function handleSubmit() {
     })
     message.success(`"${form.value.displayName}" created`)
     await queryClient.invalidateQueries({ queryKey: ['tables'] })
+    await queryClient.invalidateQueries({ queryKey: ['workspace'] })
     await queryClient.refetchQueries({ queryKey: ['tables'] })
     emit('created', tableName)
     visible.value = false

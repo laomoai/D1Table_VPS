@@ -7,180 +7,48 @@
         <span class="logo">D1Table</span>
       </div>
 
-      <!-- Tab bar -->
-      <div class="sidebar-tabs">
-        <button
-          class="sidebar-tab"
-          :class="{ active: sidebarTab === 'tables' }"
-          @click="sidebarTab = 'tables'"
-        >
-          <n-icon :component="TableIcon" size="14" />
-          <span>Tables</span>
-        </button>
-        <button
-          class="sidebar-tab"
-          :class="{ active: sidebarTab === 'notes' }"
-          @click="sidebarTab = 'notes'"
-        >
-          <n-icon :component="NotesIcon" size="14" />
-          <span>Notes</span>
-        </button>
+      <div class="panel-header">
+        <input v-model="workspaceSearch" class="panel-search-input" placeholder="Search..." />
+        <div class="add-wrap">
+          <button class="panel-add-btn" title="Add" @click="showAddMenu = !showAddMenu">+</button>
+          <div v-if="showAddMenu" class="add-menu" @click.stop>
+            <button @click="addFolder()">Folder</button>
+            <button @click="openCreateTable()">Table</button>
+            <button @click="addNote()">Note</button>
+          </div>
+        </div>
       </div>
 
       <!-- Scrollable content area -->
       <div class="sidebar-scroll">
-        <!-- ════ Tables panel ════ -->
-        <div v-show="sidebarTab === 'tables'" class="table-list">
-          <!-- Grouped tables -->
-          <template v-for="group in groupedTables" :key="group.id">
-            <div
-              class="group-header"
-              draggable="true"
-              @click="toggleGroup(group.id)"
-              @dragstart.stop="onGroupDragStart($event, group.id)"
-              @dragover.prevent="onGroupDragOver"
-              @drop.stop="onGroupDrop($event, group.id)"
-              @dragend="onGroupDragEnd"
-              :class="{ 'drag-target': draggedGroupId !== null && draggedGroupId !== group.id }"
-            >
-              <span class="group-arrow" :class="{ expanded: expandedGroups.has(group.id) }">›</span>
-              <HoverTooltipText
-                :text="group.name"
-                class-name="group-name"
-              />
-              <span class="group-count">{{ group.tables.length }}</span>
-            </div>
-            <template v-if="expandedGroups.has(group.id)">
-              <div
-                v-for="table in sortedTables(group.tables)"
-                :key="table.name"
-                class="table-item grouped"
-                :style="tableItemStyle"
-                :class="{ active: activeTable === table.name }"
-                draggable="true"
-                @click="navigateToTable(table.name)"
-                @dragstart="onDragStart($event, table.name)"
-                @dragover="onDragOver"
-                @drop="onDrop($event, table.name)"
-                @dragend="onDragEnd"
-              >
-                <span class="table-icon-cell">
-                  <IonIcon v-if="table.icon && table.icon.startsWith('ion:')" :name="table.icon.slice(4)" :size="14" />
-                  <span v-else-if="table.icon" class="table-emoji-icon">{{ table.icon }}</span>
-                  <IonIcon v-else name="GridOutline" :size="14" />
-                </span>
-                <template v-if="editingTable === table.name">
-                  <input
-                    v-model="editTableTitle"
-                    class="table-name-input"
-                    @keyup.enter="saveTableTitle(table)"
-                    @keyup.escape="cancelTableEdit"
-                    @blur="saveTableTitle(table)"
-                    @click.stop
-                    ref="tableEditInputRef"
-                  />
-                </template>
-                <template v-else>
-                  <HoverTooltipText
-                    :text="table.title || table.name"
-                    class-name="table-name"
-                    @dblclick.stop="startTableEdit(table)"
-                  />
-                </template>
-              </div>
-            </template>
-          </template>
-
-          <!-- Ungrouped tables -->
-          <template v-if="ungroupedTables.length > 0">
-            <div
-              v-if="groupedTables.length > 0"
-              class="group-header"
-              @click="toggleGroup(-1)"
-            >
-              <span class="group-arrow" :class="{ expanded: expandedGroups.has(-1) }">›</span>
-              <span class="group-name">Ungrouped</span>
-              <span class="group-count">{{ ungroupedTables.length }}</span>
-            </div>
-            <template v-if="groupedTables.length === 0 || expandedGroups.has(-1)">
-              <div
-                v-for="table in sortedTables(ungroupedTables)"
-                :key="table.name"
-                class="table-item"
-                :style="tableItemStyle"
-                :class="{ active: activeTable === table.name, grouped: groupedTables.length > 0 }"
-                draggable="true"
-                @click="navigateToTable(table.name)"
-                @dragstart="onDragStart($event, table.name)"
-                @dragover="onDragOver"
-                @drop="onDrop($event, table.name)"
-                @dragend="onDragEnd"
-              >
-                <span class="table-icon-cell">
-                  <IonIcon v-if="table.icon && table.icon.startsWith('ion:')" :name="table.icon.slice(4)" :size="14" />
-                  <span v-else-if="table.icon" class="table-emoji-icon">{{ table.icon }}</span>
-                  <IonIcon v-else name="GridOutline" :size="14" />
-                </span>
-                <template v-if="editingTable === table.name">
-                  <input
-                    v-model="editTableTitle"
-                    class="table-name-input"
-                    @keyup.enter="saveTableTitle(table)"
-                    @keyup.escape="cancelTableEdit"
-                    @blur="saveTableTitle(table)"
-                    @click.stop
-                    ref="tableEditInputRef"
-                  />
-                </template>
-                <template v-else>
-                  <HoverTooltipText
-                    :text="table.title || table.name"
-                    class-name="table-name"
-                    @dblclick.stop="startTableEdit(table)"
-                  />
-                </template>
-              </div>
-            </template>
-          </template>
-        </div>
-
-        <!-- ════ Notes panel ════ -->
-        <div v-show="sidebarTab === 'notes'" class="notes-panel">
-          <div class="panel-header">
-            <input v-model="noteSearch" class="panel-search-input" :style="noteSearchStyle" placeholder="Search..." />
-            <button class="panel-add-btn" @click="createNewNote" title="New Note">+</button>
+        <div class="table-list">
+          <n-spin v-if="workspaceLoading" size="small" style="padding: 20px; display: flex; justify-content: center;" />
+          <div v-else-if="workspaceRoots.length === 0" class="panel-empty">
+            {{ workspaceSearch ? 'No matches' : 'Empty workspace' }}
           </div>
-          <div class="panel-list">
-            <n-spin v-if="notesTreeLoading" size="small" style="padding: 20px; display: flex; justify-content: center;" />
-            <div v-else-if="sidebarVisibleRootNotes.length === 0" class="panel-empty">
-              {{ noteSearch ? 'No matching notes' : 'No notes yet' }}
-            </div>
-            <template v-else>
-              <NoteTreeItem
-                v-for="note in sidebarVisibleRootNotes"
-                :key="note.id"
-                :note="note"
-                :children="sidebarVisibleChildrenMap.get(note.id) ?? []"
-                :children-map="sidebarVisibleChildrenMap"
-                :active-id="activeNoteId"
-                :expanded-ids="sidebarExpandedNoteIds"
-                :item-style="noteItemStyle"
-                :drop-target-id="noteDropState.id"
-                :drop-position="noteDropState.position"
-                @select="selectNote"
-                @toggle="toggleNoteFolder"
-                @create-child="createChildNote"
-                @archive="archiveNote"
-                @reorder="handleNoteReorder"
-                @update:drop-state="noteDropState = $event"
-              />
-            </template>
-          </div>
+          <WorkspaceTreeItem
+            v-for="node in workspaceRoots"
+            :key="node.id"
+            :node="node"
+            :children="workspaceChildrenMap.get(node.id) ?? []"
+            :children-map="workspaceChildrenMap"
+            :active-table="activeTable"
+            :active-note-id="activeNoteId"
+            :expanded-ids="expandedWorkspace"
+            :item-style="tableItemStyle"
+            :drop-target-id="wsDropState.id"
+            :drop-position="wsDropState.position"
+            @select="selectWorkspaceNode"
+            @toggle="toggleWorkspaceFolder"
+            @add-here="onAddHere"
+            @delete-folder="onDeleteFolder"
+            @reorder="handleWorkspaceReorder"
+            @update:drop-state="wsDropState = $event"
+          />
         </div>
 
         <!-- Knowledge Base entry -->
         <div
-          v-show="sidebarTab === 'notes'"
           class="kb-entry"
           :class="{ active: route.path === '/knowledge-base' }"
           @click="router.push('/knowledge-base')"
@@ -239,6 +107,7 @@
     </main>
 
     <NotePreviewModal />
+    <CreateTableModal v-model:show="showCreateTable" :folder-id="createTargetFolder" @created="onTableCreated" />
   </div>
 </template>
 
@@ -254,13 +123,15 @@ import {
   DocumentTextOutline as NotesIcon,
   ShieldCheckmarkOutline as AdminIcon,
 } from '@vicons/ionicons5'
-import { api, notesApi, http, avatarUrl, type TableMeta, type NoteListItem } from '@/api/client'
+import { api, notesApi, http, avatarUrl, workspaceApi, type TableMeta, type NoteListItem, type WorkspaceNode } from '@/api/client'
 import { getCachedUser, resetAuthState } from '@/router'
 import { registerClipboardToast } from '@/utils/clipboard'
 import HoverTooltipText from './HoverTooltipText.vue'
 import IonIcon from './IonIcon.vue'
 import NoteTreeItem from './NoteTreeItem.vue'
 import NotePreviewModal from './NotePreviewModal.vue'
+import WorkspaceTreeItem from './WorkspaceTreeItem.vue'
+import CreateTableModal from './CreateTableModal.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -269,6 +140,136 @@ const router = useRouter()
 const route = useRoute()
 const queryClient = useQueryClient()
 const RECENT_KEY = 'd1table_recent_access'
+
+const workspaceSearch = ref('')
+const showAddMenu = ref(false)
+const showCreateTable = ref(false)
+const createTargetFolder = ref<string | null>(null)
+const wsDropState = ref<{ id: string | null; position: 'above' | 'child' | null }>({ id: null, position: null })
+const EXPANDED_WS_KEY = 'd1table_expanded_workspace'
+const expandedWorkspace = reactive(new Set<string>(
+  JSON.parse(localStorage.getItem(EXPANDED_WS_KEY) ?? '[]') as string[],
+))
+
+const { data: workspaceNodes, isLoading: workspaceLoading } = useQuery({
+  queryKey: ['workspace'],
+  queryFn: workspaceApi.getTree,
+})
+
+const workspaceChildrenMap = computed(() => {
+  const map = new Map<string, WorkspaceNode[]>()
+  const q = workspaceSearch.value.trim().toLowerCase()
+  for (const n of workspaceNodes.value ?? []) {
+    if (q && n.kind !== 'folder' && !n.title.toLowerCase().includes(q)) continue
+    if (!n.parent_id) continue
+    const arr = map.get(n.parent_id) ?? []
+    arr.push(n)
+    map.set(n.parent_id, arr)
+  }
+  return map
+})
+
+const workspaceRoots = computed(() => {
+  const q = workspaceSearch.value.trim().toLowerCase()
+  return (workspaceNodes.value ?? []).filter((n) => {
+    if (n.parent_id) return false
+    if (!q) return true
+    if (n.kind === 'folder') return true
+    return n.title.toLowerCase().includes(q)
+  })
+})
+
+function saveExpandedWs() {
+  localStorage.setItem(EXPANDED_WS_KEY, JSON.stringify([...expandedWorkspace]))
+}
+
+function toggleWorkspaceFolder(id: string) {
+  if (expandedWorkspace.has(id)) expandedWorkspace.delete(id)
+  else expandedWorkspace.add(id)
+  saveExpandedWs()
+}
+
+function selectWorkspaceNode(node: WorkspaceNode) {
+  if (node.kind === 'table' && node.ref) router.push(`/tables/${node.ref}`)
+  if (node.kind === 'note' && node.ref) router.push(`/notes/${node.ref}`)
+}
+
+function onAddHere(folderId: string) {
+  createTargetFolder.value = folderId
+  showAddMenu.value = true
+}
+
+async function addFolder(parentId?: string) {
+  showAddMenu.value = false
+  const title = window.prompt('Folder name')
+  if (!title?.trim()) return
+  try {
+    await workspaceApi.createFolder({ title: title.trim(), parent_id: parentId ?? createTargetFolder.value })
+    createTargetFolder.value = null
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+  } catch (err) {
+    message.error((err as Error).message)
+  }
+}
+
+function openCreateTable() {
+  showAddMenu.value = false
+  showCreateTable.value = true
+}
+
+function onTableCreated(name: string) {
+  queryClient.invalidateQueries({ queryKey: ['workspace'] })
+  router.push(`/tables/${name}`)
+  createTargetFolder.value = null
+}
+
+async function addNote(parentFolder?: string) {
+  showAddMenu.value = false
+  try {
+    const result = await notesApi.createNote({
+      title: 'Untitled',
+      folder_id: parentFolder ?? createTargetFolder.value,
+    })
+    createTargetFolder.value = null
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
+    router.push(`/notes/${result.id}`)
+  } catch (err) {
+    message.error((err as Error).message)
+  }
+}
+
+function onDeleteFolder(id: string) {
+  dialog.warning({
+    title: 'Delete folder',
+    content: 'Only empty folders can be deleted.',
+    positiveText: 'Delete',
+    negativeText: 'Cancel',
+    onPositiveClick: async () => {
+      try {
+        await workspaceApi.deleteFolder(id)
+        queryClient.invalidateQueries({ queryKey: ['workspace'] })
+      } catch (err) {
+        message.error((err as Error).message)
+      }
+    },
+  })
+}
+
+async function handleWorkspaceReorder(payload: { dragId: string; dropId: string; mode: 'above' | 'child' }) {
+  const nodes = workspaceNodes.value ?? []
+  const drop = nodes.find((n) => n.id === payload.dropId)
+  if (!drop) return
+  const parentId = payload.mode === 'child' && drop.kind === 'folder' ? drop.id : drop.parent_id
+  try {
+    await workspaceApi.move({ id: payload.dragId, parent_id: parentId, sort_order: drop.sort_order })
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+  } catch (err) {
+    message.error((err as Error).message)
+  }
+}
+
+watch(() => route.path, () => { showAddMenu.value = false })
 
 // ── Sidebar resize ──────────────────────────────────────────────
 const SIDEBAR_WIDTH_KEY = 'd1table_sidebar_width'
@@ -1053,6 +1054,32 @@ async function logout() {
   flex-shrink: 0;
   transition: all 0.1s;
 }
+.add-wrap { position: relative; flex-shrink: 0; }
+.add-menu {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #e9e9e7;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  min-width: 120px;
+  padding: 4px;
+}
+.add-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #37352f;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.add-menu button:hover { background: rgba(55,53,47,0.06); }
 .panel-add-btn:hover {
   background: rgba(55, 53, 47, 0.08);
   color: #37352f;

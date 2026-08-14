@@ -18,6 +18,7 @@ import notesRouter from './routes/notes'
 import teamsRouter from './routes/teams'
 import administrationRouter from './routes/administration'
 import avatarsRouter from './routes/avatars'
+import workspaceRouter from './routes/workspace'
 
 const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -82,6 +83,7 @@ app.route('/api/tables', dashboardsRouter)
 app.route('/api/user', preferencesRouter)
 app.route('/api/notes', notesRouter)
 app.route('/api/teams', teamsRouter)
+app.route('/api/workspace', workspaceRouter)
 
 // GET /api/files/* — 从 R2 代理图片（鉴权后才可访问）
 app.get('/api/files/*', async (c) => {

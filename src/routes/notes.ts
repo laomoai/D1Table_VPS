@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware, teamFilter } from '../middleware/auth'
 import { canAccessNote, getAccessibleNoteIds } from '../utils/note-access'
+import { ensureNoteNode, removeNodeByRef, updateNodeTitleByRef } from '../utils/workspace'
 
 const notes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -328,6 +329,7 @@ notes.post('/', requireWriteMiddleware, async (c) => {
     title?: string
     content?: string
     parent_id?: string
+    folder_id?: string | null
   }>()
 
   const MAX_CONTENT = 1024 * 1024 // 1MB
@@ -372,7 +374,18 @@ notes.post('/', requireWriteMiddleware, async (c) => {
     c.get('teamId') ?? null,
   ).run()
 
-  return c.json({ data: { id, title: body.title?.trim() || 'Untitled' } }, 201)
+  const title = body.title?.trim() || 'Untitled'
+  if (!body.parent_id) {
+    await ensureNoteNode(c.env.DB, {
+      noteId: id,
+      title,
+      folderId: body.folder_id,
+      teamId: c.get('teamId'),
+      ownerId: userId ?? null,
+    })
+  }
+
+  return c.json({ data: { id, title } }, 201)
 })
 
 /**
@@ -489,6 +502,13 @@ notes.patch('/:id', requireWriteMiddleware, async (c) => {
 
   if (result.meta.changes === 0) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Note not found' } }, 404)
+  }
+
+  if (body.title !== undefined) {
+    await updateNodeTitleByRef(c.env.DB, 'note', id, body.title.trim() || 'Untitled')
+  }
+  if (body.parent_id) {
+    await removeNodeByRef(c.env.DB, 'note', id)
   }
 
   return c.json({ data: { success: true } })
@@ -680,6 +700,7 @@ notes.delete('/:id/permanent', requireWriteMiddleware, async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Deleted note not found' } }, 404)
   }
 
+  await removeNodeByRef(c.env.DB, 'note', id)
   return c.json({ data: { success: true } })
 })
 
