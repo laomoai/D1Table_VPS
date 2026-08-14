@@ -281,8 +281,7 @@
                 <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">Members ({{ teamData.members.length }})</div>
                 <div class="user-list">
                   <div v-for="m in teamData.members" :key="m.id" class="user-row">
-                    <img v-if="m.picture" :src="m.picture" class="user-avatar" referrerpolicy="no-referrer" />
-                    <div v-else class="user-avatar-placeholder">{{ (m.name || m.email)[0] }}</div>
+                    <img :src="avatarUrl(m.picture, m.email)" class="user-avatar" referrerpolicy="no-referrer" />
                     <div class="user-info">
                       <div class="user-name">{{ m.name || m.email }}</div>
                       <div class="user-email">{{ m.email }}</div>
@@ -456,7 +455,7 @@ import {
   NSpin, NModal, NAlert, NRadioGroup, NRadio, NCheckboxGroup, NCheckbox,
   NSlider, NPagination, useMessage, useDialog,
 } from 'naive-ui'
-import { api, notesApi, teamApi, getCurrentUser, type ApiKeyInfo, type TableMeta, type TrashItem, type TeamDetail, type NoteListItem } from '@/api/client'
+import { api, notesApi, teamApi, getCurrentUser, avatarUrl, type ApiKeyInfo, type TableMeta, type TrashItem, type TeamDetail, type NoteListItem } from '@/api/client'
 import ExportSchemaModal from '@/components/ExportSchemaModal.vue'
 import HoverTooltipText from '@/components/HoverTooltipText.vue'
 import IonIcon from '@/components/IonIcon.vue'

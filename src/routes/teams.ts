@@ -3,6 +3,7 @@ import type { Context } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware } from '../middleware/auth'
 import { hardDeleteMember, isValidEmail } from '../utils/members'
+import { withAvatar } from '../utils/avatar'
 
 type AppContext = Context<{ Bindings: Env; Variables: AuthVariables }>
 
@@ -46,7 +47,7 @@ teams.get('/current', async (c) => {
   return c.json({
     data: {
       ...team,
-      members: members.results,
+      members: members.results.map((m) => ({ ...m, picture: withAvatar(m.picture, m.email) })),
     }
   })
 })

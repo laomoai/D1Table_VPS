@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { requireAdminMiddleware } from '../middleware/auth'
 import { hardDeleteMember, hardDeleteSpace, isValidEmail } from '../utils/members'
+import { withAvatar } from '../utils/avatar'
 
 const administration = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -95,6 +96,13 @@ administration.post('/spaces', async (c) => {
       `UPDATE _teams SET created_by = ? WHERE id = ?`
     ).bind(userId, teamId).run()
 
+    try {
+      const { sendInviteEmail } = await import('./auth')
+      await sendInviteEmail(c.env, Number(userId), ownerEmail)
+    } catch (mailErr) {
+      console.error('[mail] owner invite failed', mailErr)
+    }
+
     return c.json({
       data: { id: teamId, name, owner_email: ownerEmail, owner_id: userId }
     }, 201)
@@ -127,7 +135,12 @@ administration.get('/spaces/:id', async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Space not found' } }, 404)
   }
 
-  return c.json({ data: { ...team, members: members.results } })
+  return c.json({
+    data: {
+      ...team,
+      members: members.results.map((m) => ({ ...m, picture: withAvatar(m.picture, m.email) })),
+    },
+  })
 })
 
 /**
@@ -187,7 +200,15 @@ administration.post('/spaces/:id/members', async (c) => {
     `INSERT INTO _users (email, name, role, status, team_id) VALUES (?, ?, 'user', 'active', ?)`
   ).bind(email, email, spaceId).run()
 
-  return c.json({ data: { id: result.meta.last_row_id, email } }, 201)
+  const newId = result.meta.last_row_id
+  try {
+    const { sendInviteEmail } = await import('./auth')
+    await sendInviteEmail(c.env, Number(newId), email)
+  } catch (err) {
+    console.error('[mail] invite failed', err)
+  }
+
+  return c.json({ data: { id: newId, email } }, 201)
 })
 
 /**

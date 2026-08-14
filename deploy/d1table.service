@@ -1,0 +1,24 @@
+[Unit]
+Description=D1Table (Node + SQLite)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=true
+StateDirectory=d1table
+EnvironmentFile=/etc/d1table.env
+WorkingDirectory=/opt/d1table/current
+ExecStart=/opt/d1table/current/node_modules/.bin/tsx src/server.ts
+Restart=on-failure
+RestartSec=3
+MemoryMax=350M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+CapabilityBoundingSet=
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,13 +1,16 @@
+import type { SqliteDatabase } from './db/sqlite'
+import type { LocalBucket } from './storage/local-bucket'
+
 export type Env = {
-  DB: D1Database
-  ASSETS: Fetcher
-  BUCKET: R2Bucket
+  DB: SqliteDatabase
+  BUCKET: LocalBucket
   ENVIRONMENT: string
   ADMIN_KEY?: string
-  GOOGLE_CLIENT_ID: string
-  GOOGLE_CLIENT_SECRET: string
   SESSION_SECRET: string
-  ALLOWED_EMAILS: string  // 仅用于引导首个 admin，之后通过 _users 表管理
+  ALLOW_PUBLIC_REGISTER?: string
+  PUBLIC_ORIGIN: string
+  RESEND_API_KEY?: string
+  MAIL_FROM?: string
 }
 
 export type SessionUser = {

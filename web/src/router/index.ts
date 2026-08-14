@@ -26,6 +26,11 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
+      path: '/reset-password',
+      component: () => import('@/pages/ResetPasswordPage.vue'),
+      meta: { guest: true },
+    },
+    {
       path: '/',
       component: () => import('@/components/AppLayout.vue'),
       children: [
@@ -53,7 +58,7 @@ router.beforeEach(async (to) => {
     authChecked = true
   }
   if (!authState.authed && !to.meta.guest) return '/login'
-  if (authState.authed && to.path === '/login') return '/'
+  if (authState.authed && (to.path === '/login' || to.path === '/reset-password')) return '/'
   if (to.meta.admin && authState.user?.role !== 'admin') return '/'
 })
 

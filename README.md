@@ -1,6 +1,38 @@
-# D1Table
+# D1Table (Ubuntu / SQLite)
 
-D1Table 是一个基于 **Cloudflare Workers + D1 + R2** 的轻量级在线数据工作台。
+独立仓库：把 [D1Table](https://github.com/laomoai/D1Table) 从 Cloudflare Workers + D1 + R2 改成 **Node + 本机 SQLite + 本地文件**，适合部署在 Ubuntu VPS。
+
+与 Cloudflare 版互不共享数据库和运行时。线上示例：`https://table.lemoai.cn`
+
+## 与原版的差异
+
+| | 原版 `laomoai/D1Table` | 本仓库 |
+|---|---|---|
+| 运行时 | Cloudflare Workers | Node.js (`@hono/node-server`) |
+| 数据库 | D1 | SQLite（WAL） |
+| 文件 | R2 | 本地目录 |
+| 登录 | Google OAuth | 邮箱 + 密码，Resend 发信 |
+| 头像 | Google 头像 | 本机 DiceBear Lorelei |
+| 发布 | `wrangler deploy` | systemd + Nginx |
+
+## 本地运行
+
+```bash
+cp .env.example .env
+# 填写 SESSION_SECRET
+npm install
+cd web && npm install && cd ..
+npm run build:web
+npm start
+```
+
+打开 `http://127.0.0.1:18085`。空库时第一个注册用户成为 admin。
+
+VPS 部署清单见 `deploy/`（无密钥）。密钥只放服务器 `/etc/d1table.env`。
+
+---
+
+D1Table 是一个轻量级在线数据工作台。
 
 它把表格数据库、Notes、图表、回收箱、团队权限、API 文档整合到同一个界面里，既适合团队成员通过可视化界面使用，也适合 AI Agent 或自动化脚本通过 REST API 访问。
 

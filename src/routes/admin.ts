@@ -3,6 +3,7 @@ import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware, requireAdminMiddleware } from '../middleware/auth'
 import { isValidEmail } from '../utils/members'
 import { generateApiKey, sha256 } from '../utils/crypto'
+import { withAvatar } from '../utils/avatar'
 
 const admin = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -432,7 +433,9 @@ admin.get('/users', requireAdminMiddleware, async (c) => {
               FROM _users u LEFT JOIN _teams t ON t.id = u.team_id ORDER BY u.id ASC`)
     .all<{ id: number; email: string; name: string; picture: string; role: string; status: string; created_at: number; last_login: number | null; team_id: number | null; team_name: string | null }>()
 
-  return c.json({ data: rows.results })
+  return c.json({
+    data: rows.results.map((u) => ({ ...u, picture: withAvatar(u.picture, u.email) })),
+  })
 })
 
 /**

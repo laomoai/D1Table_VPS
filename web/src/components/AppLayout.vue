@@ -212,7 +212,7 @@
         </transition>
         <div v-if="currentUser" class="user-trigger" @click="showUserMenu = !showUserMenu">
           <img
-            :src="currentUser.picture"
+            :src="avatarUrl(currentUser.picture, currentUser.email)"
             class="user-avatar"
             referrerpolicy="no-referrer"
             :alt="currentUser.name"
@@ -254,7 +254,7 @@ import {
   DocumentTextOutline as NotesIcon,
   ShieldCheckmarkOutline as AdminIcon,
 } from '@vicons/ionicons5'
-import { api, notesApi, http, type TableMeta, type NoteListItem } from '@/api/client'
+import { api, notesApi, http, avatarUrl, type TableMeta, type NoteListItem } from '@/api/client'
 import { getCachedUser, resetAuthState } from '@/router'
 import { registerClipboardToast } from '@/utils/clipboard'
 import HoverTooltipText from './HoverTooltipText.vue'

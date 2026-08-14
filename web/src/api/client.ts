@@ -424,6 +424,11 @@ export const notesApi = {
     http.get<{ data: ArchivedChild[] }>(`/notes/${rootId}/archived-children`).then(r => r.data.data),
 }
 
+export function avatarUrl(picture: string | null | undefined, email: string): string {
+  if (picture && picture.trim()) return picture
+  return `/api/avatars/${encodeURIComponent((email || 'user').trim().toLowerCase())}`
+}
+
 export const getCurrentUser = (): Promise<CurrentUser> =>
   http.get<{ data: CurrentUser }>('/auth/me')
     .then(r => r.data.data)

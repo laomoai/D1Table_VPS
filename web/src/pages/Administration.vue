@@ -71,8 +71,7 @@
         <div class="detail-section-title">Members ({{ spaceDetail.members.length }})</div>
         <div v-if="spaceDetail.members.length" class="member-list-scroll">
           <div v-for="m in spaceDetail.members" :key="m.id" class="user-row">
-            <img v-if="m.picture" :src="m.picture" class="user-avatar" referrerpolicy="no-referrer" />
-            <div v-else class="user-avatar-placeholder">{{ (m.name || m.email)[0] }}</div>
+            <img :src="avatarUrl(m.picture, m.email)" class="user-avatar" referrerpolicy="no-referrer" />
             <div class="user-info">
               <div class="user-name">{{ m.name || m.email }}</div>
               <div class="user-email">{{ m.email }}</div>
@@ -120,7 +119,7 @@
 import { ref, reactive } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { NButton, NInput, NModal, NForm, NFormItem, NTag, NSpin, useMessage, useDialog } from 'naive-ui'
-import { administrationApi, type SpaceDetail } from '@/api/client'
+import { administrationApi, avatarUrl, type SpaceDetail } from '@/api/client'
 
 function formatLastLogin(ts: number | null): string {
   if (!ts) return 'Never'

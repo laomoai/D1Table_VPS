@@ -6,6 +6,8 @@ public/
 .wrangler/
 .dev.vars*
 .env*
+!.env.example
+data/
 *.local
 web/node_modules/
 web/dist/

@@ -17,6 +17,7 @@ import preferencesRouter from './routes/preferences'
 import notesRouter from './routes/notes'
 import teamsRouter from './routes/teams'
 import administrationRouter from './routes/administration'
+import avatarsRouter from './routes/avatars'
 
 const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -55,6 +56,7 @@ app.get(
 
 // auth 路由不需要认证，必须在 authMiddleware 之前注册
 app.route('/api/auth', authRouter)
+app.route('/api/avatars', avatarsRouter)
 
 // ── 需要认证的路由 ─────────────────────────────────────────────
 app.use('/api/*', async (c, next) => {
@@ -90,22 +92,10 @@ app.get('/api/files/*', async (c) => {
   const headers = new Headers()
   obj.writeHttpMetadata(headers)
   headers.set('Cache-Control', 'public, max-age=31536000, immutable')
-  return new Response(obj.body, { headers })
+  return new Response(obj.body as BodyInit, { headers })
 })
 
-// ── 入口：API 走 Hono，其余走静态资源（SPA）────────────────────
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url)
-
-    if (url.pathname.startsWith('/api/')) {
-      return app.fetch(request, env, ctx)
-    }
-
-    // 静态资源由 Cloudflare Assets 处理（SPA fallback 返回 index.html）
-    return env.ASSETS.fetch(request)
-  },
-}
+export { app }
 
 // ── OpenAPI 3.0 Spec ──────────────────────────────────────────
 function openApiSpec(serverUrl: string) {
