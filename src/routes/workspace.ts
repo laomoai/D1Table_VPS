@@ -12,6 +12,10 @@ import {
   listWorkspaceNodes,
   moveNode,
   renameFolder,
+  archiveFolder,
+  unarchiveFolder,
+  listArchivedFolders,
+  getArchivedFolderTree,
 } from '../utils/workspace'
 
 const workspace = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -62,6 +66,38 @@ workspace.patch('/folders/:id', requireWriteMiddleware, async (c) => {
 workspace.delete('/folders/:id', requireWriteMiddleware, async (c) => {
   try {
     await deleteEmptyFolder(c.env.DB, c.req.param('id'), c.get('teamId'))
+    return c.json({ data: { success: true } })
+  } catch (err) {
+    return workspaceError(c, err)
+  }
+})
+
+workspace.get('/archived', async (c) => {
+  const folders = await listArchivedFolders(c.env.DB, c.get('teamId'))
+  return c.json({ data: folders })
+})
+
+workspace.get('/archived/:id', async (c) => {
+  try {
+    const data = await getArchivedFolderTree(c.env.DB, c.req.param('id'), c.get('teamId'))
+    return c.json({ data })
+  } catch (err) {
+    return workspaceError(c, err)
+  }
+})
+
+workspace.post('/folders/:id/archive', requireWriteMiddleware, async (c) => {
+  try {
+    const counts = await archiveFolder(c.env.DB, c.req.param('id'), c.get('teamId'))
+    return c.json({ data: { success: true, ...counts } })
+  } catch (err) {
+    return workspaceError(c, err)
+  }
+})
+
+workspace.post('/folders/:id/unarchive', requireWriteMiddleware, async (c) => {
+  try {
+    await unarchiveFolder(c.env.DB, c.req.param('id'), c.get('teamId'))
     return c.json({ data: { success: true } })
   } catch (err) {
     return workspaceError(c, err)

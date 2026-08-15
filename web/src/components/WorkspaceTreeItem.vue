@@ -68,12 +68,9 @@
               <div v-if="moveTargets.length === 0" class="ws-menu-empty">没有其他文件夹</div>
             </div>
           </div>
-          <template v-if="node.kind === 'note' || node.kind === 'table'">
-            <div class="ws-menu-sep" />
-            <button class="ws-menu-item" @click="onArchive">归档到知识库</button>
-          </template>
           <template v-if="node.kind === 'folder'">
             <div class="ws-menu-sep" />
+            <button class="ws-menu-item" @click="onArchive">归档整个文件夹</button>
             <button class="ws-menu-item danger" @click="onDelete">删除</button>
           </template>
       </div>

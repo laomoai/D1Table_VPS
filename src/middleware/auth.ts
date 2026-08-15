@@ -175,6 +175,19 @@ export const tableAccessMiddleware: MiddlewareHandler<{
     }
   }
 
+  const method = c.req.method.toUpperCase()
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const row = await c.env.DB.prepare(
+      `SELECT archived_at FROM _meta WHERE table_name = ?`,
+    ).bind(tableName).first<{ archived_at: number | null }>()
+    if (row?.archived_at && !c.req.path.endsWith('/unarchive')) {
+      return c.json(
+        { error: { code: 'ARCHIVED', message: '归档中的表格不能修改，请先把所在文件夹恢复到工作区' } },
+        403,
+      )
+    }
+  }
+
   return next()
 }
 

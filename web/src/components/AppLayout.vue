@@ -54,12 +54,12 @@
         <!-- Knowledge Base entry -->
         <div
           class="kb-entry"
-          :class="{ active: route.path === '/knowledge-base' }"
-          @click="router.push('/knowledge-base')"
+          :class="{ active: route.path.startsWith('/archive') || route.path.startsWith('/knowledge-base') }"
+          @click="router.push('/archive')"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          <span>知识库</span>
-          <span v-if="archivedRoots?.length" class="kb-badge">{{ archivedRoots.length }}</span>
+          <span>归档</span>
+          <span v-if="archivedFolders?.length" class="kb-badge">{{ archivedFolders.length }}</span>
         </div>
       </div>
 
@@ -308,30 +308,20 @@ function onTableCreated(name: string) {
 }
 
 function onArchiveNode(node: WorkspaceNode) {
-  const isTable = node.kind === 'table'
+  if (node.kind !== 'folder') return
   dialog.warning({
-    title: '归档到知识库',
-    content: isTable
-      ? '该表格会从侧栏和工作台隐藏，可在知识库中恢复。'
-      : '该笔记会从侧栏移出，可在知识库中恢复。',
+    title: '归档整个文件夹',
+    content: '文件夹里的表格和笔记会一起从侧栏收起，归档架中只读。需要时再整柜恢复。',
     positiveText: '归档',
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        if (isTable) {
-          if (!node.ref) return
-          await api.archiveTable(node.ref)
-          queryClient.invalidateQueries({ queryKey: ['tables'] })
-          if (route.params.tableName === node.ref) router.push('/')
-        } else if (node.ref) {
-          await notesApi.archiveNote(node.ref)
-          queryClient.invalidateQueries({ queryKey: ['notes'] })
-          if (route.params.noteId === node.ref) router.push('/')
-        }
+        await workspaceApi.archiveFolder(node.id)
         queryClient.invalidateQueries({ queryKey: ['workspace'] })
-        queryClient.invalidateQueries({ queryKey: ['notes', 'archived-roots'] })
-        queryClient.invalidateQueries({ queryKey: ['tables', 'archived'] })
-        message.success('已移到知识库')
+        queryClient.invalidateQueries({ queryKey: ['tables'] })
+        queryClient.invalidateQueries({ queryKey: ['notes'] })
+        queryClient.invalidateQueries({ queryKey: ['workspace', 'archived'] })
+        message.success('已收入归档架')
       } catch (err) {
         message.error((err as Error).message)
       }
@@ -697,27 +687,12 @@ const { data: notesTree, isLoading: notesTreeLoading } = useQuery({
   queryFn: notesApi.getTree,
 })
 
-const { data: archivedRoots } = useQuery({
-  queryKey: ['notes', 'archived-roots'],
-  queryFn: () => notesApi.getArchivedRoots(),
+const { data: archivedFolders } = useQuery({
+  queryKey: ['workspace', 'archived'],
+  queryFn: () => workspaceApi.listArchivedFolders(),
 })
 
-// Set of root IDs that have archived children
-const archivedRootIds = computed(() =>
-  new Set((archivedRoots.value ?? []).map(r => r.id))
-)
-
-const noteRootNotes = computed(() => {
-  const roots = (notesTree.value ?? []).filter(n => !n.parent_id)
-  // Hide root notes whose children are all archived:
-  // root appears in archivedRootIds AND has no visible children in the tree
-  return roots.filter(root => {
-    if (!archivedRootIds.value.has(root.id)) return true
-    // Check if root has any visible children in the tree
-    const hasVisibleChildren = (notesTree.value ?? []).some(n => n.parent_id === root.id)
-    return hasVisibleChildren
-  })
-})
+const noteRootNotes = computed(() => (notesTree.value ?? []).filter(n => !n.parent_id))
 
 const noteChildrenMap = computed(() => {
   const map = new Map<string, NoteListItem[]>()

@@ -409,6 +409,13 @@ notes.patch('/:id', requireWriteMiddleware, async (c) => {
     return c.json({ error: { code: 'FORBIDDEN', message: 'Access to this note is not allowed' } }, 403)
   }
 
+  const existing = await c.env.DB.prepare(
+    `SELECT archived_at FROM _notes WHERE id = ?`,
+  ).bind(id).first<{ archived_at: number | null }>()
+  if (existing?.archived_at) {
+    return c.json({ error: { code: 'ARCHIVED', message: '归档中的笔记不能修改，请先恢复到工作区' } }, 403)
+  }
+
   const sets: string[] = ['updated_at = unixepoch()']
   const params: unknown[] = []
 

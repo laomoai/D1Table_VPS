@@ -4,7 +4,7 @@
       <div class="login-brand">
         <img src="/logo.svg" class="login-logo-img" alt="墨问" />
         <div class="login-logo">墨问</div>
-        <div class="login-subtitle">表格、笔记与知识库</div>
+        <div class="login-subtitle">表格与笔记</div>
       </div>
 
       <n-alert v-if="errorMsg" type="error" style="margin-bottom: 16px;">

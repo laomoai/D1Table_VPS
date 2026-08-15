@@ -357,6 +357,14 @@ export interface WorkspaceNode {
   icon: string | null
 }
 
+export type ArchivedFolder = {
+  id: string
+  title: string
+  archived_at: number
+  table_count: number
+  note_count: number
+}
+
 export const workspaceApi = {
   getTree: () =>
     http.get<{ data: WorkspaceNode[] }>('/workspace/tree').then(r => r.data.data),
@@ -368,6 +376,14 @@ export const workspaceApi = {
     http.delete(`/workspace/folders/${id}`),
   move: (data: { id: string; parent_id: string | null; sort_order?: number }) =>
     http.post('/workspace/move', data),
+  archiveFolder: (id: string) =>
+    http.post<{ data: { success: boolean; table_count: number; note_count: number } }>(`/workspace/folders/${id}/archive`).then(r => r.data.data),
+  unarchiveFolder: (id: string) =>
+    http.post<{ data: { success: boolean } }>(`/workspace/folders/${id}/unarchive`).then(r => r.data.data),
+  listArchivedFolders: () =>
+    http.get<{ data: ArchivedFolder[] }>('/workspace/archived').then(r => r.data.data),
+  getArchivedFolder: (id: string) =>
+    http.get<{ data: { folder: WorkspaceNode; nodes: WorkspaceNode[] } }>(`/workspace/archived/${id}`).then(r => r.data.data),
 }
 
 export interface NoteUpdate {

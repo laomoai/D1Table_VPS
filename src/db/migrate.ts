@@ -56,6 +56,11 @@ export function applyMigrations(sqlitePath: string, migrationsDir: string): void
       db.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(file)
       continue
     }
+    if (file === '0026_folder_archive.sql' && hasColumn('_workspace_nodes', 'archived_at')) {
+      console.log(`Skipping ${file} because _workspace_nodes.archived_at already exists.`)
+      db.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(file)
+      continue
+    }
 
     console.log(`Applying ${file}...`)
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8')

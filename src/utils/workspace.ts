@@ -12,6 +12,7 @@ export type WorkspaceNode = {
   group_id: number | null
   team_id: number | null
   icon: string | null
+  archived_at?: number | null
 }
 
 export function newWorkspaceId(kind: WorkspaceKind): string {
@@ -36,7 +37,7 @@ async function nextSort(db: SqliteDatabase, teamId: number | undefined, parentId
 
 export async function getNode(db: SqliteDatabase, id: string): Promise<WorkspaceNode | null> {
   return db.prepare(
-    `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, NULL as icon
+    `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, NULL as icon, archived_at
      FROM _workspace_nodes WHERE id = ?`,
   ).bind(id).first<WorkspaceNode>()
 }
@@ -438,7 +439,8 @@ export async function listWorkspaceNodes(
                 WHEN n.kind = 'table' THEN (SELECT icon FROM _meta WHERE table_name = n.ref)
                 WHEN n.kind = 'note' THEN (SELECT icon FROM _notes WHERE id = n.ref)
                 ELSE NULL
-              END AS icon
+              END AS icon,
+              n.archived_at
        FROM _workspace_nodes n
        WHERE n.team_id = ?
          AND NOT (n.kind = 'note' AND EXISTS (
@@ -453,7 +455,8 @@ export async function listWorkspaceNodes(
                 WHEN n.kind = 'table' THEN (SELECT icon FROM _meta WHERE table_name = n.ref)
                 WHEN n.kind = 'note' THEN (SELECT icon FROM _notes WHERE id = n.ref)
                 ELSE NULL
-              END AS icon
+              END AS icon,
+              n.archived_at
        FROM _workspace_nodes n
        WHERE NOT (n.kind = 'note' AND EXISTS (
            SELECT 1 FROM _notes nt WHERE nt.id = n.ref AND (nt.deleted_at IS NOT NULL OR nt.archived_at IS NOT NULL)
@@ -466,7 +469,180 @@ export async function listWorkspaceNodes(
   const result = teamId !== undefined
     ? await db.prepare(sql).bind(teamId).all<WorkspaceNode>()
     : await db.prepare(sql).all<WorkspaceNode>()
+  return excludeArchivedCabinets(result.results)
+}
+
+function excludeArchivedCabinets(nodes: WorkspaceNode[]): WorkspaceNode[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const hidden = new Set<string>()
+  for (const n of nodes) {
+    if (n.kind === 'folder' && n.archived_at) hidden.add(n.id)
+  }
+  const underHidden = (id: string): boolean => {
+    let cur: string | null = id
+    const seen = new Set<string>()
+    while (cur) {
+      if (hidden.has(cur)) return true
+      if (seen.has(cur)) break
+      seen.add(cur)
+      cur = byId.get(cur)?.parent_id ?? null
+    }
+    return false
+  }
+  return nodes.filter((n) => !underHidden(n.id))
+}
+
+async function loadTeamNodes(db: SqliteDatabase, teamId: number | undefined): Promise<WorkspaceNode[]> {
+  const sql = teamId !== undefined
+    ? `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, NULL as icon, archived_at
+       FROM _workspace_nodes WHERE team_id = ?`
+    : `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, NULL as icon, archived_at
+       FROM _workspace_nodes`
+  const result = teamId !== undefined
+    ? await db.prepare(sql).bind(teamId).all<WorkspaceNode>()
+    : await db.prepare(sql).all<WorkspaceNode>()
   return result.results
+}
+
+function subtreeIds(nodes: WorkspaceNode[], rootId: string): string[] {
+  const byParent = new Map<string | null, WorkspaceNode[]>()
+  for (const n of nodes) {
+    const arr = byParent.get(n.parent_id) ?? []
+    arr.push(n)
+    byParent.set(n.parent_id, arr)
+  }
+  const out = [rootId]
+  const queue = [rootId]
+  while (queue.length) {
+    const id = queue.shift()!
+    for (const child of byParent.get(id) ?? []) {
+      out.push(child.id)
+      queue.push(child.id)
+    }
+  }
+  return out
+}
+
+export async function archiveFolder(
+  db: SqliteDatabase,
+  folderId: string,
+  teamId: number | undefined,
+): Promise<{ table_count: number; note_count: number }> {
+  const folder = await getNode(db, folderId)
+  if (!folder || folder.kind !== 'folder') {
+    throw Object.assign(new Error('只能归档文件夹'), { status: 400, code: 'NOT_A_FOLDER' })
+  }
+  if (teamId !== undefined && folder.team_id !== teamId) {
+    throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
+  }
+  if (folder.archived_at) {
+    return { table_count: 0, note_count: 0 }
+  }
+
+  const nodes = await loadTeamNodes(db, teamId)
+  const ids = subtreeIds(nodes, folderId)
+  const idSet = new Set(ids)
+  const subtree = nodes.filter((n) => idSet.has(n.id))
+  const notes = subtree.filter((n) => n.kind === 'note' && n.ref)
+  const tables = subtree.filter((n) => n.kind === 'table' && n.ref)
+
+  await db.prepare(`UPDATE _workspace_nodes SET archived_at = unixepoch() WHERE id = ?`).bind(folderId).run()
+
+  for (const note of notes) {
+    await db.prepare(
+      `UPDATE _notes SET archived_at = unixepoch() WHERE id = ? AND archived_at IS NULL AND deleted_at IS NULL`,
+    ).bind(note.ref).run()
+  }
+
+  let exclusiveTables = 0
+  for (const table of tables) {
+    const liveElsewhere = nodes.some((n) => {
+      if (n.kind !== 'table' || n.ref !== table.ref || idSet.has(n.id)) return false
+      let p = n.parent_id
+      const seen = new Set<string>()
+      while (p) {
+        if (idSet.has(p)) return false
+        const folderNode = nodes.find((x) => x.id === p)
+        if (folderNode?.archived_at) return false
+        if (seen.has(p)) break
+        seen.add(p)
+        p = folderNode?.parent_id ?? null
+      }
+      return true
+    })
+    if (!liveElsewhere) {
+      await db.prepare(
+        `UPDATE _meta SET archived_at = unixepoch() WHERE table_name = ? AND archived_at IS NULL`,
+      ).bind(table.ref).run()
+      exclusiveTables += 1
+    }
+  }
+
+  return { table_count: exclusiveTables, note_count: notes.length }
+}
+
+export async function unarchiveFolder(
+  db: SqliteDatabase,
+  folderId: string,
+  teamId: number | undefined,
+): Promise<void> {
+  const folder = await getNode(db, folderId)
+  if (!folder || folder.kind !== 'folder') {
+    throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
+  }
+  if (teamId !== undefined && folder.team_id !== teamId) {
+    throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
+  }
+
+  const nodes = await loadTeamNodes(db, teamId)
+  const ids = subtreeIds(nodes, folderId)
+  const idSet = new Set(ids)
+  const subtree = nodes.filter((n) => idSet.has(n.id))
+
+  await db.prepare(`UPDATE _workspace_nodes SET archived_at = NULL WHERE id = ?`).bind(folderId).run()
+
+  for (const note of subtree.filter((n) => n.kind === 'note' && n.ref)) {
+    await db.prepare(`UPDATE _notes SET archived_at = NULL WHERE id = ? AND deleted_at IS NULL`).bind(note.ref).run()
+  }
+  for (const table of subtree.filter((n) => n.kind === 'table' && n.ref)) {
+    await db.prepare(`UPDATE _meta SET archived_at = NULL WHERE table_name = ?`).bind(table.ref).run()
+  }
+}
+
+export async function listArchivedFolders(
+  db: SqliteDatabase,
+  teamId: number | undefined,
+): Promise<Array<{ id: string; title: string; archived_at: number; table_count: number; note_count: number }>> {
+  const nodes = await loadTeamNodes(db, teamId)
+  const cabinets = nodes.filter((n) => n.kind === 'folder' && n.archived_at)
+  return cabinets.map((folder) => {
+    const ids = new Set(subtreeIds(nodes, folder.id))
+    const kids = nodes.filter((n) => ids.has(n.id))
+    return {
+      id: folder.id,
+      title: folder.title,
+      archived_at: folder.archived_at as number,
+      table_count: kids.filter((n) => n.kind === 'table').length,
+      note_count: kids.filter((n) => n.kind === 'note').length,
+    }
+  })
+}
+
+export async function getArchivedFolderTree(
+  db: SqliteDatabase,
+  folderId: string,
+  teamId: number | undefined,
+): Promise<{ folder: WorkspaceNode; nodes: WorkspaceNode[] }> {
+  const folder = await getNode(db, folderId)
+  if (!folder || folder.kind !== 'folder') {
+    throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
+  }
+  if (teamId !== undefined && folder.team_id !== teamId) {
+    throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
+  }
+  const nodes = await loadTeamNodes(db, teamId)
+  const ids = new Set(subtreeIds(nodes, folderId))
+  return { folder, nodes: nodes.filter((n) => ids.has(n.id)) }
 }
 
 /** Tables and notes inside selected folders, including nested folders. */
