@@ -121,7 +121,11 @@ function openApiSpec(serverUrl: string) {
 - Datetime fields are ISO 8601 UTC, e.g. \`2026-03-15T04:37:31.000Z\`
 - Tables have an API name (\`name\`, e.g. tbl_abc123) and a display name (\`title\`)
 - Use field \`column_name\` in API requests; responses include display-name mapping
-- Images: POST /api/upload/image, then store the returned paths on the record`,
+- Images: POST /api/upload/image, then store the returned paths on the record
+
+**Agent packages (no extra coding):**
+- Skill: \`/agent/d1table/SKILL.md\` + \`/agent/d1table/scripts/d1table.py\`
+- MCP stdio: \`/agent/d1table/mcp/server.mjs\` (env \`D1TABLE_URL\`, \`D1TABLE_KEY\`)`,
     },
     servers: [{ url: serverUrl }],
     security: [{ ApiKeyAuth: [] }],

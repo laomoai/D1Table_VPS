@@ -71,6 +71,29 @@
             </div>
             <div class="hint" style="margin-top: 8px;">AI Agent 可读这份文档，自动发现可用接口</div>
           </div>
+
+          <div class="section" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f0f0f0;">
+            <div class="section-label">给 Agent 用（Skill / MCP）</div>
+            <div class="hint" style="margin-top: 8px;">
+              不用自己封装接口。把 Skill 拷进 Agent，或用 MCP 连 Cursor / Claude Desktop。密钥用上面创建的 API Key，环境变量 <code>D1TABLE_KEY</code>。
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+              <n-button tag="a" href="/agent/d1table/SKILL.md" target="_blank" size="small" type="primary" ghost>
+                Skill 说明
+              </n-button>
+              <n-button tag="a" href="/agent/d1table/README.md" target="_blank" size="small" quaternary>
+                安装说明
+              </n-button>
+              <n-button tag="a" href="/agent/d1table/mcp/server.mjs" target="_blank" size="small" quaternary>
+                MCP 服务
+              </n-button>
+            </div>
+            <pre class="agent-snippet">mkdir -p ~/.grok/skills/d1table/scripts
+curl -fsSL https://table.lemoai.cn/agent/d1table/SKILL.md -o ~/.grok/skills/d1table/SKILL.md
+curl -fsSL https://table.lemoai.cn/agent/d1table/scripts/d1table.py -o ~/.grok/skills/d1table/scripts/d1table.py
+export D1TABLE_URL=https://table.lemoai.cn
+export D1TABLE_KEY='你的密钥'</pre>
+          </div>
         </div>
       </n-tab-pane>
 
@@ -949,6 +972,17 @@ const isOwner = computed(() => {
   font-size: 12px;
   color: #999;
   margin-top: 6px;
+}
+.agent-snippet {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  background: #f7f7f5;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  color: #37352f;
 }
 .export-section {
   display: flex;

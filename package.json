@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "dev:web": "cd web && npm run dev",
     "start": "tsx src/server.ts",
-    "build:web": "cd web && npm run build",
+    "build:web": "cd web && npm run build && mkdir -p ../public/agent && rm -rf ../public/agent/d1table && cp -R ../agent/d1table ../public/agent/d1table",
     "db:migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
