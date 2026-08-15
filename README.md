@@ -2,7 +2,7 @@
 
 独立仓库：把 [D1Table](https://github.com/laomoai/D1Table) 从 Cloudflare Workers + D1 + R2 改成 **Node + 本机 SQLite + 本地文件**，适合部署在 Ubuntu VPS。
 
-与 Cloudflare 版互不共享数据库和运行时。线上示例：`https://table.lemoai.cn`
+与 Cloudflare 版互不共享数据库和运行时。线上：`https://mowen.lemoai.cn`（`table.lemoai.cn` 仍可用）
 
 ## 与原版的差异
 

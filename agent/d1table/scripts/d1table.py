@@ -10,7 +10,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_URL = "https://table.lemoai.cn"
+DEFAULT_URL = "https://mowen.lemoai.cn"
 
 
 def die(msg: str, code: int = 1) -> None:

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256" role="img" aria-label="墨问">
+  <!-- 2 colors on paper: ink blot + inquiry mark. Favicon-friendly. -->
+  <rect width="64" height="64" rx="14" fill="#F4EFE6"/>
+  <circle cx="32" cy="28" r="14" fill="#1A1917"/>
+  <path d="M32 44 v6" stroke="#1A1917" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="54.5" r="2.6" fill="#C23B22"/>
+</svg>

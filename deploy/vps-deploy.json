@@ -16,7 +16,7 @@
     "healthPath": "/api/health"
   },
   "public": {
-    "url": "https://table.lemoai.cn",
+    "url": "https://mowen.lemoai.cn",
     "nginxConfig": "/etc/nginx/sites-available/table.lemoai.cn",
     "websocket": false
   },
@@ -28,7 +28,7 @@
   },
   "verification": {
     "localHealthUrl": "http://127.0.0.1:18085/api/health",
-    "publicHealthUrl": "https://table.lemoai.cn/api/health",
+    "publicHealthUrl": "https://mowen.lemoai.cn/api/health",
     "browserRequired": true
   }
 }

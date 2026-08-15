@@ -3,8 +3,8 @@
     <!-- Sidebar -->
     <aside class="sidebar" :style="{ width: sidebarWidth + 'px' }">
       <div class="sidebar-header" @click="router.push('/')" style="cursor:pointer;">
-        <img src="/logo.png" class="logo-img" alt="D1Table" />
-        <span class="logo">D1Table</span>
+        <img src="/logo.svg" class="logo-img" alt="墨问" />
+        <span class="logo">墨问</span>
       </div>
 
       <div class="panel-header">
@@ -1001,7 +1001,7 @@ async function logout() {
   height: 26px;
   object-fit: contain;
   flex-shrink: 0;
-  opacity: 0.85;
+  opacity: 1;
 }
 .logo {
   font-size: 16px;

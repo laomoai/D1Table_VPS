@@ -89,9 +89,9 @@
               </n-button>
             </div>
             <pre class="agent-snippet">mkdir -p ~/.grok/skills/d1table/scripts
-curl -fsSL https://table.lemoai.cn/agent/d1table/SKILL.md -o ~/.grok/skills/d1table/SKILL.md
-curl -fsSL https://table.lemoai.cn/agent/d1table/scripts/d1table.py -o ~/.grok/skills/d1table/scripts/d1table.py
-export D1TABLE_URL=https://table.lemoai.cn
+curl -fsSL https://mowen.lemoai.cn/agent/d1table/SKILL.md -o ~/.grok/skills/d1table/SKILL.md
+curl -fsSL https://mowen.lemoai.cn/agent/d1table/scripts/d1table.py -o ~/.grok/skills/d1table/scripts/d1table.py
+export D1TABLE_URL=https://mowen.lemoai.cn
 export D1TABLE_KEY='你的密钥'</pre>
           </div>
         </div>

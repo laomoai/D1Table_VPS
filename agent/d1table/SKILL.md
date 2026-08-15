@@ -2,7 +2,7 @@
 name: d1table
 description: >
   通过 D1Table HTTP API 管理表格、记录、笔记和工作区。
-  在用户要查表、写记录、读写笔记、归档知识库、或提到 D1Table / table.lemoai.cn 时使用。
+  在用户要查表、写记录、读写笔记、归档知识库、或提到 墨问 / MoWen / mowen.lemoai.cn 时使用。
   斜杠命令：/d1table
 ---
 
@@ -11,7 +11,7 @@ description: >
 用环境变量调用官方 API，不要手写 curl，也不要把密钥写进仓库。
 
 ```
-D1TABLE_URL   默认 https://table.lemoai.cn
+D1TABLE_URL   默认 https://mowen.lemoai.cn
 D1TABLE_KEY   设置里创建的 API Key（X-API-Key）
 ```
 
@@ -46,4 +46,4 @@ python3 scripts/d1table.py groups
 
 ## 没有 Key 时
 
-让用户到 https://table.lemoai.cn/settings 创建一把文件夹范围的 Key，再设置 `D1TABLE_KEY`。不要编造密钥。
+让用户到 https://mowen.lemoai.cn/settings 创建一把文件夹范围的 Key，再设置 `D1TABLE_KEY`。不要编造密钥。

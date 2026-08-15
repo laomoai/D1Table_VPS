@@ -5,7 +5,7 @@
  */
 import { createInterface } from "node:readline";
 
-const URL_BASE = (process.env.D1TABLE_URL || "https://table.lemoai.cn").replace(/\/$/, "");
+const URL_BASE = (process.env.D1TABLE_URL || "https://mowen.lemoai.cn").replace(/\/$/, "");
 const API_KEY = (process.env.D1TABLE_KEY || "").trim();
 
 const TOOLS = [

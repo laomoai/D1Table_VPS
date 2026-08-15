@@ -50,7 +50,7 @@ app.get(
   '/api/docs',
   apiReference({
     spec: { url: '/api/openapi.json' },
-    pageTitle: 'D1Table API Docs',
+    pageTitle: '墨问 API',
     theme: 'purple',
   })
 )
@@ -104,9 +104,9 @@ function openApiSpec(serverUrl: string) {
   return {
     openapi: '3.0.0',
     info: {
-      title: 'D1Table API',
+      title: '墨问 MoWen API',
       version: '2.1.0',
-      description: `D1Table API (Ubuntu + SQLite). Dynamic table CRUD, notes, and a sidebar workspace tree. Designed for AI Agent use.
+      description: `墨问（MoWen）API：表格、笔记与工作区。Ubuntu + SQLite。供 AI Agent 使用。
 
 **Authentication:** send \`X-API-Key\` on API calls. The web UI uses an email/password session cookie instead. There is no Google OAuth.
 

@@ -14,7 +14,7 @@ export async function sendMail(
     console.warn('[mail] RESEND_API_KEY not set; skip send to', to)
     return
   }
-  const from = env.MAIL_FROM || 'D1Table <noreply@lemoai.cn>'
+  const from = env.MAIL_FROM || '墨问 <noreply@mail.lemoai.cn>'
   const resp = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -31,14 +31,14 @@ export async function sendMail(
 
 export function resetPasswordHtml(origin: string, token: string): string {
   const url = `${origin}/reset-password?token=${encodeURIComponent(token)}`
-  return `<p>You requested a password reset for D1Table.</p>
-<p><a href="${url}">Set a new password</a></p>
-<p>This link expires in 1 hour. If you did not request it, ignore this email.</p>`
+  return `<p>你正在重置墨问（MoWen）的登录密码。</p>
+<p><a href="${url}">设置新密码</a></p>
+<p>链接 1 小时内有效。若不是你本人操作，请忽略这封邮件。</p>`
 }
 
 export function inviteHtml(origin: string, token: string): string {
   const url = `${origin}/reset-password?token=${encodeURIComponent(token)}`
-  return `<p>You have been invited to D1Table.</p>
-<p><a href="${url}">Set your password and sign in</a></p>
-<p>This link expires in 7 days.</p>`
+  return `<p>你被邀请加入墨问（MoWen）。</p>
+<p><a href="${url}">设置密码并登录</a></p>
+<p>链接 7 天内有效。</p>`
 }

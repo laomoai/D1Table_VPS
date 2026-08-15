@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256" role="img" aria-label="墨问">
+  <!-- 2 colors: ink + cinnabar. Square mark like a seal. -->
+  <rect width="64" height="64" rx="14" fill="#1A1917"/>
+  <!-- simplified 问: mouth + mark, one stroke family -->
+  <rect x="18" y="16" width="28" height="22" rx="4" fill="none" stroke="#F4EFE6" stroke-width="3.2"/>
+  <path d="M32 40 v6" stroke="#F4EFE6" stroke-width="3.2" stroke-linecap="round"/>
+  <circle cx="32" cy="51.5" r="2.4" fill="#C23B22"/>
+</svg>

@@ -2,8 +2,9 @@
   <div class="login-page">
     <div class="login-card">
       <div class="login-brand">
-        <div class="login-logo">D1Table</div>
-        <div class="login-subtitle">部署在你自己服务器上的数据表格</div>
+        <img src="/logo.svg" class="login-logo-img" alt="墨问" />
+        <div class="login-logo">墨问</div>
+        <div class="login-subtitle">表格、笔记与知识库</div>
       </div>
 
       <n-alert v-if="errorMsg" type="error" style="margin-bottom: 16px;">
@@ -163,8 +164,8 @@ async function sendReset() {
 .login-logo {
   font-size: 28px;
   font-weight: 800;
-  color: #4F6EF7;
-  letter-spacing: 1px;
+  color: #1A1917;
+  letter-spacing: 0.04em;
 }
 .login-subtitle {
   font-size: 13px;

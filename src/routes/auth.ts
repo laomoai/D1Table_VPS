@@ -164,7 +164,7 @@ auth.post('/forgot-password', async (c) => {
     ).bind(token, user.id, expires).run()
     const origin = c.env.PUBLIC_ORIGIN || new URL(c.req.url).origin
     try {
-      await sendMail(c.env, email, 'Reset your D1Table password', resetPasswordHtml(origin, token))
+      await sendMail(c.env, email, '重置墨问密码', resetPasswordHtml(origin, token))
     } catch (err) {
       console.error('[mail] forgot-password failed', err)
       return c.json({ error: { code: 'MAIL_FAILED', message: 'Could not send email' } }, 502)
@@ -263,7 +263,7 @@ export async function sendInviteEmail(env: Env, userId: number, email: string): 
   await env.DB.prepare(
     `INSERT INTO _password_resets (token, user_id, expires_at) VALUES (?, ?, ?)`,
   ).bind(token, userId, expires).run()
-  await sendMail(env, email, 'You are invited to D1Table', inviteHtml(env.PUBLIC_ORIGIN, token))
+  await sendMail(env, email, '邀请你加入墨问', inviteHtml(env.PUBLIC_ORIGIN, token))
 }
 
 export default auth
