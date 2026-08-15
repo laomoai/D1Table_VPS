@@ -462,8 +462,9 @@ export const notesApi = {
 }
 
 export function avatarUrl(picture: string | null | undefined, email: string): string {
-  if (picture && picture.trim()) return picture
-  return `/api/avatars/${encodeURIComponent((email || 'user').trim().toLowerCase())}`
+  const value = picture?.trim() ?? ''
+  if (value && !value.includes('/api/avatars/')) return value
+  return `/api/avatars/${encodeURIComponent((email || 'user').trim().toLowerCase())}?v=color`
 }
 
 export const getCurrentUser = (): Promise<CurrentUser> =>

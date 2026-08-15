@@ -1,7 +1,7 @@
 <template>
   <n-modal
     v-model:show="visible"
-    :title="isEdit ? 'Edit Record' : 'New Record'"
+    :title="isEdit ? '编辑记录' : '新建记录'"
     preset="card"
     style="width: 560px;"
     :mask-closable="false"
@@ -21,7 +21,7 @@
         :rule="!field.nullable ? {
           required: true,
           type: ['number', 'currency', 'percent', 'datetime', 'checkbox'].includes(field.field_type) ? 'number' : 'string',
-          message: `${field.title} is required`,
+          message: `${field.title} 为必填`,
           trigger: ['blur', 'input', 'change']
         } : undefined"
       >
@@ -88,7 +88,7 @@
           v-else-if="field.field_type === 'email'"
           :value="formData[field.column_name] as string"
           @update:value="(v: string) => formData[field.column_name] = v"
-          placeholder="Enter email address"
+          placeholder="输入邮箱地址"
           type="text"
         />
 
@@ -114,7 +114,7 @@
           v-else-if="field.field_type === 'totp'"
           :value="formData[field.column_name] as string"
           @update:value="(v: string) => formData[field.column_name] = v"
-          placeholder="Enter TOTP secret key (base32)"
+          placeholder="输入动态口令密钥（base32）"
           type="password"
           show-password-on="click"
         />
@@ -130,7 +130,7 @@
               v-else
               v-model="notesLinkSearch[field.column_name]"
               class="nlp-search-inline"
-              placeholder="Search notes..."
+              placeholder="搜索笔记…"
             />
           </div>
           <div class="nlp-tree">
@@ -138,7 +138,7 @@
               <div class="nlp-empty"><n-spin size="small" /></div>
             </template>
             <template v-else-if="!getFilteredNotes(field.column_name).length">
-              <div class="nlp-empty">No notes found</div>
+              <div class="nlp-empty">没有找到笔记</div>
             </template>
             <div
               v-for="item in getFilteredNotes(field.column_name)"
@@ -201,7 +201,7 @@
 
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <n-button @click="visible = false">Cancel</n-button>
+        <n-button @click="visible = false">取消</n-button>
         <n-button type="primary" :loading="submitting" @click="handleSubmit">
           {{ isEdit ? 'Save' : 'Add' }}
         </n-button>

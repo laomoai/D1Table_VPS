@@ -4,7 +4,7 @@
       ref="inputRef"
       :value="modelValue"
       @update:value="$emit('update:modelValue', $event)"
-      placeholder="Enter password"
+      placeholder="输入密码"
       type="password"
       show-password-on="click"
       style="flex: 1;"

@@ -33,8 +33,8 @@ const embedExtension = {
   },
   renderer(token: any) {
     return `<div class="md-embed">
-      <div class="md-embed-header"><span class="table-ref-icon md-embed-icon" aria-hidden="true"></span>${token.tableTitle || token.tableName} <span class="md-embed-badge">Live Data</span></div>
-      <div class="md-embed-hint">Table: ${token.tableName} (limit ${token.limit})</div>
+      <div class="md-embed-header"><span class="table-ref-icon md-embed-icon" aria-hidden="true"></span>${token.tableTitle || token.tableName} <span class="md-embed-badge">实时数据</span></div>
+      <div class="md-embed-hint">表格：${token.tableName}（最多 ${token.limit} 行）</div>
     </div>`
   },
 }

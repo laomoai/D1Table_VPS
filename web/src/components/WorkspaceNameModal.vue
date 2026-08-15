@@ -5,7 +5,7 @@
         <div class="name-kicker">{{ kicker }}</div>
         <h3 class="name-title">{{ title }}</h3>
         <label class="name-field">
-          <span class="name-label">Name</span>
+          <span class="name-label">名称</span>
           <input
             ref="inputRef"
             v-model="draft"
@@ -18,7 +18,7 @@
         </label>
         <p class="name-hint">{{ hint }}</p>
         <div class="name-actions">
-          <button type="button" class="btn ghost" @click="close">Cancel</button>
+          <button type="button" class="btn ghost" @click="close">取消</button>
           <button type="button" class="btn solid" :disabled="!draft.trim() || submitting" @click="confirm">
             {{ confirmLabel }}
           </button>
@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<{
   confirmLabel?: string
   initial?: string
 }>(), {
-  title: 'New folder',
+  title: '新建文件夹',
   kicker: 'Workspace',
   hint: 'Folders only organize the sidebar. They have no page of their own.',
   placeholder: 'e.g. Clients, Research, Archive',

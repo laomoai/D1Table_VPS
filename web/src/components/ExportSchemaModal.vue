@@ -1,14 +1,14 @@
 <template>
   <AppModal
     v-model:show="visible"
-    title="Export Schema"
+    title="导出结构"
     width="clamp(460px, 35vw, 580px)"
     height="clamp(420px, 55vh, 620px)"
   >
     <div class="content">
-      <p class="desc">Select tables to include in the exported CSV file.</p>
+      <p class="desc">选择要包含在导出 CSV 中的表格。</p>
 
-      <!-- Select All -->
+      <!-- 全选 -->
       <label class="check-row all-row">
         <input
           type="checkbox"
@@ -17,7 +17,7 @@
           :ref="(el) => { allCheckRef = el as HTMLInputElement | null }"
           @change="toggleAll"
         />
-        <span class="all-label">Select All</span>
+        <span class="all-label">全选</span>
         <span class="count-tag">{{ selected.length }} / {{ allTableNames.length }}</span>
       </label>
 
@@ -57,7 +57,7 @@
       <template v-if="groupedData.ungrouped.length">
         <div v-if="groupedData.withGroup.length" class="separator" />
         <div class="group-block">
-          <div class="no-group-label">No group</div>
+          <div class="no-group-label">未分组</div>
           <label
             v-for="t in groupedData.ungrouped"
             :key="t.name"
@@ -77,14 +77,14 @@
     </div>
 
     <template #footer>
-      <span class="footer-count">{{ selected.length }} table{{ selected.length !== 1 ? 's' : '' }} selected</span>
-      <button class="btn-cancel" @click="visible = false">Cancel</button>
+      <span class="footer-count">已选 {{ selected.length }} 张表</span>
+      <button class="btn-cancel" @click="visible = false">取消</button>
       <button
         class="btn-export"
         :disabled="selected.length === 0 || exporting"
         @click="handleExport"
       >
-        {{ exporting ? 'Exporting…' : 'Export CSV' }}
+        {{ exporting ? '导出中…' : '导出 CSV' }}
       </button>
     </template>
   </AppModal>
@@ -234,7 +234,7 @@ async function handleExport() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    message.success('Exported successfully')
+    message.success('导出成功')
     visible.value = false
   } catch (err) {
     message.error((err as Error).message)
@@ -277,7 +277,7 @@ async function handleExport() {
   accent-color: #37352f;
 }
 
-/* Select All row */
+/* 全选 row */
 .all-row { margin-bottom: 2px; }
 .all-label {
   font-size: 13px;

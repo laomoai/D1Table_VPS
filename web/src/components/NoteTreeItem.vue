@@ -16,7 +16,7 @@
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
     >
-      <span class="note-drag-handle" title="Drag to reorder">⋮⋮</span>
+      <span class="note-drag-handle" title="拖动排序">⋮⋮</span>
       <span
         v-if="hasChildren"
         class="note-arrow"
@@ -31,12 +31,12 @@
       </span>
       <span class="note-title-wrap">
         <HoverTooltipText
-          :text="note.title || 'Untitled'"
+          :text="note.title || '未命名'"
           class-name="note-title"
         />
       </span>
       <div class="note-actions">
-        <button v-if="note.parent_id" class="note-action-btn note-archive-btn" title="Archive" @click.stop="emit('archive', note.id)">
+        <button v-if="note.parent_id" class="note-action-btn note-archive-btn" title="归档" @click.stop="emit('archive', note.id)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
         </button>
         <button class="note-action-btn" title="Add sub-note" @click.stop="emit('create-child', note.id)">+</button>

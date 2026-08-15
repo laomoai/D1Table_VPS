@@ -1,6 +1,6 @@
 <template>
   <n-drawer v-model:show="visible" :width="340" placement="right">
-    <n-drawer-content title="Field Management" :native-scrollbar="false">
+    <n-drawer-content title="字段管理" :native-scrollbar="false">
       <div class="field-list">
         <div
           v-for="(field, idx) in localFields"
@@ -19,7 +19,7 @@
             :class="{ active: expandedCol === field.column_name, hidden: field.is_hidden, dragging: draggingIdx === idx }"
             @click="toggleExpand(field)"
           >
-            <span class="drag-handle" @click.stop title="Drag to reorder">⠿</span>
+            <span class="drag-handle" @click.stop title="拖动排序">⠿</span>
             <span class="field-icon" :style="{ color: typeColor(field.field_type) }">
               <IonIcon v-if="typeIcon(field.field_type).startsWith('ion:')" :name="typeIcon(field.field_type).slice(4)" :size="14" />
               <span v-else>{{ typeIcon(field.field_type) }}</span>
@@ -33,7 +33,7 @@
                 class="icon-btn"
                 :class="{ 'eye-hidden': field.is_hidden }"
                 @click="toggleHidden(field)"
-                :title="field.is_hidden ? 'Show field' : 'Hide field'"
+                :title="field.is_hidden ? '显示字段' : '隐藏字段'"
               >
                 <IonIcon :name="field.is_hidden ? 'EyeOffOutline' : 'EyeOutline'" :size="14" />
               </button>
@@ -44,7 +44,7 @@
           <n-collapse-transition :show="expandedCol === field.column_name">
             <div class="field-editor">
               <div class="editor-section">
-                <div class="editor-label">Field Name</div>
+                <div class="editor-label">字段名称</div>
                 <n-input
                   v-model:value="editForm.title"
                   size="small"
@@ -54,7 +54,7 @@
               </div>
 
               <div class="editor-section">
-                <div class="editor-label">Field Type</div>
+                <div class="editor-label">字段类型</div>
                 <div class="type-grid">
                   <button
                     v-for="t in fieldTypes"
@@ -76,7 +76,7 @@
 
               <!-- Select 选项编辑器 -->
               <div v-if="editForm.field_type === 'select'" class="editor-section">
-                <div class="editor-label">Options</div>
+                <div class="editor-label">选项</div>
                 <div class="select-options-editor">
                   <div
                     v-for="(opt, oi) in editForm.select_options"
@@ -93,7 +93,7 @@
                       v-model="opt.color"
                       type="color"
                       class="opt-color-input"
-                      title="Choose color"
+                      title="选择颜色"
                     />
                     <button class="icon-btn" @click="editForm.select_options.splice(oi, 1)">✕</button>
                   </div>
@@ -103,7 +103,7 @@
 
               <!-- Link 目标表 -->
               <div v-if="editForm.field_type === 'link'" class="editor-section">
-                <div class="editor-label">Target Table</div>
+                <div class="editor-label">关联表格</div>
                 <naive-select
                   v-model:value="editForm.link_table"
                   :options="availableTables.filter(t => t.value !== props.tableName)"
@@ -113,7 +113,7 @@
                 />
               </div>
               <div v-if="editForm.field_type === 'link' && editForm.link_table && targetFieldOptions.length" class="editor-section">
-                <div class="editor-label">Display Field</div>
+                <div class="editor-label">显示字段</div>
                 <naive-select
                   v-model:value="editForm.link_display_field"
                   :options="targetFieldOptions"
@@ -124,8 +124,8 @@
               </div>
 
               <div class="editor-footer">
-                <n-button size="small" @click="cancelExpand">Cancel</n-button>
-                <n-button size="small" type="primary" :loading="saving" @click="saveFieldEdit(field)">Save</n-button>
+                <n-button size="small" @click="cancelExpand">取消</n-button>
+                <n-button size="small" type="primary" :loading="saving" @click="saveFieldEdit(field)">保存</n-button>
               </div>
             </div>
           </n-collapse-transition>
@@ -137,11 +137,11 @@
         <n-collapse-transition :show="showAddForm">
           <div class="add-field-form">
             <div class="editor-section">
-              <div class="editor-label">Field Name</div>
+              <div class="editor-label">字段名称</div>
               <n-input v-model:value="newField.title" size="small" placeholder="Field display name" />
             </div>
             <div class="editor-section">
-              <div class="editor-label">Field Type</div>
+              <div class="editor-label">字段类型</div>
               <div class="type-grid">
                 <button
                   v-for="t in fieldTypes"
@@ -162,7 +162,7 @@
             </div>
             <template v-if="newField.field_type === 'select'">
               <div class="editor-section">
-                <div class="editor-label">Options</div>
+                <div class="editor-label">选项</div>
                 <div class="select-options-editor">
                   <div v-for="(opt, oi) in newField.select_options" :key="oi" class="select-opt-row">
                     <input v-model="opt.label" class="opt-label-input" placeholder="Option name" @input="opt.value = opt.label" />
@@ -175,7 +175,7 @@
             </template>
             <template v-if="newField.field_type === 'link'">
               <div class="editor-section">
-                <div class="editor-label">Target Table</div>
+                <div class="editor-label">关联表格</div>
                 <naive-select
                   v-model:value="newField.link_table"
                   :options="availableTables.filter(t => t.value !== props.tableName)"
@@ -185,7 +185,7 @@
                 />
               </div>
               <div v-if="newField.link_table && targetFieldOptions.length" class="editor-section">
-                <div class="editor-label">Display Field</div>
+                <div class="editor-label">显示字段</div>
                 <naive-select
                   v-model:value="newField.link_display_field"
                   :options="targetFieldOptions"
@@ -196,8 +196,8 @@
               </div>
             </template>
             <div class="editor-footer">
-              <n-button size="small" @click="showAddForm = false">Cancel</n-button>
-              <n-button size="small" type="primary" :loading="adding" @click="submitAddField">Add</n-button>
+              <n-button size="small" @click="showAddForm = false">取消</n-button>
+              <n-button size="small" type="primary" :loading="adding" @click="submitAddField">添加</n-button>
             </div>
           </div>
         </n-collapse-transition>
@@ -209,7 +209,7 @@
           style="width:100%; margin-top:12px;"
           @click="openAddForm"
         >
-          + Add Field
+          + 添加字段
         </n-button>
       </div>
     </n-drawer-content>
@@ -245,7 +245,7 @@ onMounted(async () => {
   try {
     const tables = await api.getTables()
     availableTables.value = [
-      { label: 'Notes', value: '_notes' },
+      { label: '笔记', value: '_notes' },
       ...tables.map(t => ({ label: t.title || t.name, value: t.name })),
     ]
   } catch {}
@@ -253,21 +253,21 @@ onMounted(async () => {
 
 // ── 字段类型定义 ────────────────────────────────────────────────
 const fieldTypes = [
-  { value: 'text',     label: 'Text',      icon: 'T',  color: '#666' },
-  { value: 'longtext', label: 'Long text', icon: '¶',  color: '#888' },
-  { value: 'number',   label: 'Number',    icon: '#',  color: '#4f6ef7' },
-  { value: 'currency', label: 'Currency',  icon: '¥',  color: '#18a058' },
-  { value: 'percent',  label: 'Percent',   icon: '%',  color: '#f0a020' },
-  { value: 'email',    label: 'Email',     icon: '@',  color: '#00adb5' },
-  { value: 'url',      label: 'URL',       icon: 'ion:LinkOutline', color: '#4f6ef7' },
-  { value: 'date',     label: 'Date',      icon: 'ion:CalendarOutline', color: '#8a2be2' },
-  { value: 'datetime', label: 'Datetime',  icon: 'ion:TimeOutline', color: '#d03050' },
-  { value: 'checkbox', label: 'Checkbox',  icon: 'ion:CheckboxOutline',  color: '#18a058' },
-  { value: 'select',   label: 'Select',    icon: 'ion:OptionsOutline',  color: '#f0a020' },
-  { value: 'image',    label: 'Image',     icon: 'ion:ImageOutline',  color: '#e91e8c' },
-  { value: 'link',     label: 'Link',      icon: 'ion:LinkOutline',  color: '#4f6ef7' },
-  { value: 'totp',     label: '2FA',       icon: 'ion:KeyOutline',  color: '#d03050' },
-  { value: 'password', label: 'Password', icon: 'ion:LockClosedOutline',  color: '#8a6d3b' },
+  { value: 'text',     label: '文本',      icon: 'T',  color: '#666' },
+  { value: 'longtext', label: '长文本', icon: '¶',  color: '#888' },
+  { value: 'number',   label: '数字',    icon: '#',  color: '#4f6ef7' },
+  { value: 'currency', label: '货币',  icon: '¥',  color: '#18a058' },
+  { value: 'percent',  label: '百分比',   icon: '%',  color: '#f0a020' },
+  { value: 'email',    label: '邮箱',     icon: '@',  color: '#00adb5' },
+  { value: 'url',      label: '链接',       icon: 'ion:LinkOutline', color: '#4f6ef7' },
+  { value: 'date',     label: '日期',      icon: 'ion:CalendarOutline', color: '#8a2be2' },
+  { value: 'datetime', label: '日期时间',  icon: 'ion:TimeOutline', color: '#d03050' },
+  { value: 'checkbox', label: '勾选',  icon: 'ion:CheckboxOutline',  color: '#18a058' },
+  { value: 'select',   label: '单选',    icon: 'ion:OptionsOutline',  color: '#f0a020' },
+  { value: 'image',    label: '图片',     icon: 'ion:ImageOutline',  color: '#e91e8c' },
+  { value: 'link',     label: '关联',      icon: 'ion:LinkOutline',  color: '#4f6ef7' },
+  { value: 'totp',     label: '动态口令',       icon: 'ion:KeyOutline',  color: '#d03050' },
+  { value: 'password', label: '密码', icon: 'ion:LockClosedOutline',  color: '#8a6d3b' },
 ]
 
 // ── 展开编辑 ──────────────────────────────────────────────────
@@ -349,7 +349,7 @@ function addSelectOption(options: SelectOption[]) {
 
 async function saveFieldEdit(field: FieldMeta) {
   if (!editForm.value.title.trim()) {
-    message.warning('Field name cannot be empty')
+    message.warning('字段名称不能为空')
     return
   }
   saving.value = true
@@ -377,7 +377,7 @@ async function saveFieldEdit(field: FieldMeta) {
     }
 
     await api.updateFieldMeta(props.tableName, field.column_name, patch)
-    message.success('Field updated')
+    message.success('字段已更新')
     queryClient.invalidateQueries({ queryKey: ['fields', props.tableName] })
     emit('refresh')
     cancelExpand()
@@ -461,11 +461,11 @@ function openAddForm() {
 
 async function submitAddField() {
   if (!newField.value.title.trim()) {
-    message.warning('Please enter a field display name')
+    message.warning('请输入字段显示名称')
     return
   }
   if (newField.value.field_type === 'link' && !newField.value.link_table) {
-    message.warning('Please select a target table')
+    message.warning('请选择目标表格')
     return
   }
   adding.value = true
@@ -477,7 +477,7 @@ async function submitAddField() {
       link_table: newField.value.field_type === 'link' ? newField.value.link_table ?? undefined : undefined,
       link_display_field: newField.value.field_type === 'link' ? newField.value.link_display_field ?? undefined : undefined,
     })
-    message.success('Field added')
+    message.success('字段已添加')
     queryClient.invalidateQueries({ queryKey: ['fields', props.tableName] })
     emit('refresh')
     showAddForm.value = false

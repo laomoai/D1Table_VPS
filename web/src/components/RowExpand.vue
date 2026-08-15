@@ -75,11 +75,11 @@
                 <button class="note-field-btn" @click="togglePwReveal(field.column_name)">
                   {{ pwRevealed.has(field.column_name) ? 'Hide' : 'Show' }}
                 </button>
-                <button class="note-field-btn" @click="copyPwField(field.column_name)">Copy</button>
-                <button class="note-field-btn" @click="startEdit(field.column_name)">Edit</button>
+                <button class="note-field-btn" @click="copyPwField(field.column_name)">复制</button>
+                <button class="note-field-btn" @click="startEdit(field.column_name)">编辑</button>
               </div>
               <div v-else>
-                <button class="note-field-btn" @click="startEdit(field.column_name)">Set password</button>
+                <button class="note-field-btn" @click="startEdit(field.column_name)">设置密码</button>
               </div>
             </template>
 
@@ -103,7 +103,7 @@
                 <div class="totp-code-display">
                   <span class="totp-code-big">{{ totpCodes[field.column_name] || '······' }}</span>
                   <span class="totp-countdown-big" :class="{ warn: totpRemaining <= 5 }">{{ totpRemaining }}s</span>
-                  <button class="note-field-btn" @click="copyTotpFieldCode(field.column_name)" title="Copy code">Copy</button>
+                  <button class="note-field-btn" @click="copyTotpFieldCode(field.column_name)" title="复制验证码">复制</button>
                 </div>
                 <div class="totp-secret-row">
                   <code v-if="totpRevealed.has(field.column_name)" class="totp-secret">{{ currentRow[field.column_name] }}</code>
@@ -111,12 +111,12 @@
                   <button class="note-field-btn" @click="toggleTotpReveal(field.column_name)">
                     {{ totpRevealed.has(field.column_name) ? 'Hide' : 'Show' }} secret
                   </button>
-                  <button class="note-field-btn" @click="startEdit(field.column_name)">Edit</button>
-                  <button class="note-field-btn danger" @click="saveField(field.column_name, null)">Clear</button>
+                  <button class="note-field-btn" @click="startEdit(field.column_name)">编辑</button>
+                  <button class="note-field-btn danger" @click="saveField(field.column_name, null)">清除</button>
                 </div>
               </div>
               <div v-else class="totp-field-wrap">
-                <button class="note-field-btn" @click="startEdit(field.column_name)">Set secret key</button>
+                <button class="note-field-btn" @click="startEdit(field.column_name)">设置密钥</button>
               </div>
             </template>
 
@@ -137,7 +137,7 @@
                     class="note-field-btn danger"
                     @click="saveField(field.column_name, null)"
                     title="Clear"
-                  >Clear</button>
+                  >清除</button>
                 </div>
               </div>
             </template>
@@ -172,7 +172,7 @@
                     class="note-field-btn danger"
                     @click="saveField(field.column_name, null)"
                     title="Clear"
-                  >Clear</button>
+                  >清除</button>
                 </div>
               </div>
             </template>
@@ -316,7 +316,7 @@
         <!-- Notes: hierarchical tree -->
         <template v-if="linkPickerTable === '_notes'">
           <div v-if="!allNotes" class="np-empty" style="padding:20px;text-align:center"><n-spin size="small" /></div>
-          <div v-else-if="!filteredLinkNotes.length" class="np-empty">No notes found</div>
+          <div v-else-if="!filteredLinkNotes.length" class="np-empty">没有找到笔记</div>
           <div
             v-for="item in filteredLinkNotes"
             :key="item.note.id"
@@ -341,7 +341,7 @@
         <!-- Regular tables: flat list -->
         <template v-else>
           <div v-if="linkPickerLoading" class="np-empty" style="padding:20px;text-align:center"><n-spin size="small" /></div>
-          <div v-else-if="!linkPickerResults.length" class="np-empty">No records found</div>
+          <div v-else-if="!linkPickerResults.length" class="np-empty">暂无记录 found</div>
           <div
             v-for="item in linkPickerResults"
             :key="item.id"
@@ -361,15 +361,15 @@
   <n-modal v-model:show="showNotePicker" :mask-closable="true">
     <div class="note-picker-modal">
       <div class="np-header">
-        <span class="np-title">Select a note</span>
+        <span class="np-title">选择笔记</span>
         <button class="np-close" @click="showNotePicker = false">×</button>
       </div>
       <div class="np-search">
-        <input v-model="notePickerSearch" class="np-input" placeholder="Search notes..." />
+        <input v-model="notePickerSearch" class="np-input" placeholder="搜索笔记…" />
       </div>
       <div class="np-list">
         <div v-if="!allNotes" class="np-empty" style="padding:20px;text-align:center"><n-spin size="small" /></div>
-        <div v-else-if="!filteredPickerNotes.length" class="np-empty">No notes found</div>
+        <div v-else-if="!filteredPickerNotes.length" class="np-empty">没有找到笔记</div>
         <div
           v-for="item in filteredPickerNotes"
           :key="item.note.id"

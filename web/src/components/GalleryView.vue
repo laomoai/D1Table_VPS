@@ -3,7 +3,7 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <span class="table-title">
-        <button class="title-icon-btn" @click="showIconPicker = true" title="Change icon">
+        <button class="title-icon-btn" @click="showIconPicker = true" title="更换图标">
           <IonIcon v-if="props.tableIcon && props.tableIcon.startsWith('ion:')" :name="props.tableIcon.slice(4)" :size="16" />
           <span v-else-if="props.tableIcon" class="title-icon-emoji">{{ props.tableIcon }}</span>
           <IonIcon v-else name="GridOutline" :size="16" />
@@ -17,31 +17,31 @@
           </span>
         </button>
       </span>
-      <span v-if="totalCount !== null" class="row-count">{{ totalCount }} records</span>
+      <span v-if="totalCount !== null" class="row-count">{{ totalCount }} 条</span>
       <div style="flex:1" />
       <n-input
         v-model:value="searchText"
-        placeholder="Search..."
+        placeholder="搜索…"
         size="small"
         clearable
         style="width: 180px;"
       />
       <n-button size="small" @click="showFilterBar = !showFilterBar">
-        Filter{{ activeFilters.length ? ` (${activeFilters.length})` : '' }}
+        筛选{{ activeFilters.length ? ` (${activeFilters.length})` : '' }}
       </n-button>
-      <n-button size="small" quaternary @click="refreshAll" title="Refresh" :disabled="refreshing">
+      <n-button size="small" quaternary @click="refreshAll" title="刷新" :disabled="refreshing">
         <span :class="{ 'spin-icon': refreshing }">↻</span>
       </n-button>
       <n-dropdown :options="exportOptions" @select="handleExport" trigger="click">
-        <n-button size="small" :loading="exporting">Export</n-button>
+        <n-button size="small" :loading="exporting">导出</n-button>
       </n-dropdown>
-      <n-button size="small" type="primary" @click="openCreate" :disabled="props.isLocked">+ Add</n-button>
-      <n-button size="small" quaternary @click="toggleLock" :title="props.isLocked ? 'Unlock table' : 'Lock table'">
+      <n-button size="small" type="primary" @click="openCreate" :disabled="props.isLocked">+ 添加</n-button>
+      <n-button size="small" quaternary @click="toggleLock" :title="props.isLocked ? '解锁表格' : '锁定表格'">
         <IonIcon :name="props.isLocked ? 'LockClosedOutline' : 'LockOpenOutline'" :size="14" />
       </n-button>
       <!-- 视图切换 -->
       <div class="view-switcher">
-        <button class="view-btn" title="Grid view" @click="emit('switchView', 'grid')">
+        <button class="view-btn" title="表格视图" @click="emit('switchView', 'grid')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="5" height="2.5" rx="0.5"/>
             <rect x="8" y="1" width="5" height="2.5" rx="0.5"/>
@@ -51,18 +51,18 @@
             <rect x="8" y="10" width="5" height="2.5" rx="0.5"/>
           </svg>
         </button>
-        <button class="view-btn view-btn--active" title="Gallery view">
+        <button class="view-btn view-btn--active" title="画廊视图">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/>
             <rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/>
           </svg>
         </button>
-        <button class="view-btn" title="Kanban view" @click="emit('switchView', 'kanban')">
+        <button class="view-btn" title="看板视图" @click="emit('switchView', 'kanban')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="3" height="10" rx="0.5"/><rect x="5.5" y="1" width="3" height="7" rx="0.5"/><rect x="10" y="1" width="3" height="12" rx="0.5"/>
           </svg>
         </button>
-        <button class="view-btn" title="Chart view" @click="emit('switchView', 'chart')">
+        <button class="view-btn" title="图表视图" @click="emit('switchView', 'chart')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="1,11 4,6 7,9 10,3 13,6"/>
           </svg>
@@ -80,7 +80,7 @@
     <!-- 卡片区域 -->
     <div class="gallery-scroll">
       <div v-if="isLoading" class="gallery-empty"><n-spin /></div>
-      <div v-else-if="filteredRows.length === 0" class="gallery-empty">No records</div>
+      <div v-else-if="filteredRows.length === 0" class="gallery-empty">暂无记录</div>
       <div v-else class="gallery-grid">
         <div
           v-for="record in filteredRows"
@@ -128,8 +128,8 @@
           </div>
           <!-- 操作（悬浮显示）-->
           <div v-if="!props.isLocked" class="card-actions" @click.stop>
-            <button class="card-btn" @click="openEdit(record)">Edit</button>
-            <button class="card-btn card-btn--del" @click="handleDelete(record)">Delete</button>
+            <button class="card-btn" @click="openEdit(record)">编辑</button>
+            <button class="card-btn card-btn--del" @click="handleDelete(record)">删除</button>
           </div>
         </div>
       </div>
@@ -150,7 +150,7 @@
           :disabled="isFetching"
         />
       </template>
-      <span v-else-if="!isFetching && rowData.length === 0" class="footer-hint">No data</span>
+      <span v-else-if="!isFetching && rowData.length === 0" class="footer-hint">暂无数据</span>
     </div>
   </div>
 
@@ -173,7 +173,7 @@
     @refresh="invalidate"
   />
 
-  <AppModal v-model:show="showIconPicker" title="Choose Icon" width="360px" height="auto">
+  <AppModal v-model:show="showIconPicker" title="选择图标" width="360px" height="auto">
     <IconPicker :current-icon="props.tableIcon ?? null" @select="onIconSelect" />
   </AppModal>
 </template>
@@ -231,8 +231,8 @@ const copiedTableName = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const exportOptions = [
-  { label: 'Export CSV', key: 'csv' },
-  { label: 'Export JSON', key: 'json' },
+  { label: '导出 CSV', key: 'csv' },
+  { label: '导出 JSON', key: 'json' },
 ]
 
 async function onIconSelect(icon: string | null) {
@@ -416,10 +416,10 @@ async function handleFormSubmit(formData: Record<string, unknown>) {
   try {
     if (editingRecord.value) {
       await api.updateRecord(props.tableName, editingRecord.value.id, formData)
-      message.success('Record updated')
+      message.success('记录已更新')
     } else {
       await api.createRecord(props.tableName, formData)
-      message.success('Record added')
+      message.success('记录已添加')
     }
     invalidate()
     emit('refresh')
@@ -431,14 +431,14 @@ async function handleFormSubmit(formData: Record<string, unknown>) {
 
 function handleDelete(row: RecordRow) {
   dialog.warning({
-    title: 'Confirm delete',
-    content: `Delete record id=${row.id}? This action cannot be undone.`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    title: '确认删除',
+    content: `删除记录 id=${row.id}？此操作不可撤销。`,
+    positiveText: '删除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await api.deleteRecord(props.tableName, row.id)
-        message.success('Record deleted')
+        message.success('记录已删除')
         invalidate()
         emit('refresh')
       } catch (err) { message.error((err as Error).message) }

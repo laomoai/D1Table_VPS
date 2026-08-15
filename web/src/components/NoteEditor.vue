@@ -3,44 +3,44 @@
     <!-- Toolbar -->
     <div v-if="editable" class="editor-bar">
       <div class="view-tabs">
-        <button class="view-tab" :class="{ active: viewMode === 'split' }" @click="viewMode = 'split'" title="Split view">
+        <button class="view-tab" :class="{ active: viewMode === 'split' }" @click="viewMode = 'split'" title="左右分栏">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
             <rect x="1" y="1" width="12" height="12" rx="1"/><line x1="7" y1="1" x2="7" y2="13"/>
           </svg>
         </button>
-        <button class="view-tab" :class="{ active: viewMode === 'editor' }" @click="viewMode = 'editor'" title="Editor only">
+        <button class="view-tab" :class="{ active: viewMode === 'editor' }" @click="viewMode = 'editor'" title="仅编辑">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
             <rect x="1" y="1" width="12" height="12" rx="1"/>
             <line x1="3.5" y1="4" x2="10.5" y2="4"/><line x1="3.5" y1="7" x2="10.5" y2="7"/><line x1="3.5" y1="10" x2="8" y2="10"/>
           </svg>
         </button>
-        <button class="view-tab" :class="{ active: viewMode === 'preview' }" @click="viewMode = 'preview'" title="Preview only">
+        <button class="view-tab" :class="{ active: viewMode === 'preview' }" @click="viewMode = 'preview'" title="仅预览">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3">
             <circle cx="7" cy="7" r="3"/><path d="M1 7s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4z"/>
           </svg>
         </button>
       </div>
       <div class="bar-actions">
-        <button class="bar-btn" title="Insert table reference" @click="emit('insert-table-ref')">
+        <button class="bar-btn" title="插入表格引用" @click="emit('insert-table-ref')">
           <IonIcon name="GridOutline" :size="14" />
-          <span class="bar-btn-label">Table</span>
+          <span class="bar-btn-label">表格</span>
         </button>
-        <button class="bar-btn" title="Import file to this note" @click="triggerAppendImport">
+        <button class="bar-btn" title="导入文件到这篇笔记" @click="triggerAppendImport">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 1v8m0 0L4.5 6.5M7 9l2.5-2.5"/><path d="M2 10v2h10v-2"/>
           </svg>
-          <span class="bar-btn-label">Import</span>
+          <span class="bar-btn-label">导入</span>
         </button>
-        <button class="bar-btn" title="Export this note" @click="emit('export')">
+        <button class="bar-btn" title="导出这篇笔记" @click="emit('export')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 9V1m0 0L4.5 3.5M7 1l2.5 2.5"/><path d="M2 10v2h10v-2"/>
           </svg>
-          <span class="bar-btn-label">Export</span>
+          <span class="bar-btn-label">导出</span>
         </button>
       </div>
       <div class="bar-info">
-        <span class="bar-stat">Ln {{ cursorLine }}, Col {{ cursorCol }}</span>
-        <span class="bar-stat">{{ wordCount }} words</span>
+        <span class="bar-stat">第 {{ cursorLine }} 行，第 {{ cursorCol }} 列</span>
+        <span class="bar-stat">{{ wordCount }} 词</span>
       </div>
       <input ref="appendFileInput" type="file" accept=".md,.markdown,.txt" style="display:none" @change="handleAppendImport" />
     </div>

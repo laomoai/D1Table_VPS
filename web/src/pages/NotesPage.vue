@@ -6,7 +6,7 @@
       <template v-else-if="activeNoteId && noteReady && activeNote">
         <div class="note-header">
           <div class="note-title-row">
-            <button class="note-icon-btn" @click="showIconPicker = true" :disabled="!!activeNote.is_locked" :title="activeNote.icon ? 'Change icon' : 'Add icon'">
+            <button class="note-icon-btn" @click="showIconPicker = true" :disabled="!!activeNote.is_locked" :title="activeNote.icon ? '更换图标' : '添加图标'">
               <IonIcon v-if="activeNote.icon && activeNote.icon.startsWith('ion:')" :name="activeNote.icon.slice(4)" :size="22" />
               <span v-else-if="activeNote.icon" class="note-emoji-icon note-emoji-icon--lg">{{ activeNote.icon }}</span>
               <IonIcon v-else :name="activeNoteHasChildren ? 'FolderOutline' : 'DocumentOutline'" :size="22" />
@@ -14,24 +14,24 @@
             <input
               v-model="noteTitle"
               class="note-title-input"
-              placeholder="Untitled"
+              placeholder="未命名"
               :readonly="!!activeNote.is_locked"
               @blur="saveTitle"
               @keyup.enter="($event.target as HTMLInputElement).blur()"
             />
           </div>
           <div class="note-meta">
-            <button class="note-lock-btn" @click="toggleNoteLock" :title="activeNote.is_locked ? 'Unlock note' : 'Lock note'">
+            <button class="note-lock-btn" @click="toggleNoteLock" :title="activeNote.is_locked ? '解锁笔记' : '锁定笔记'">
               <IonIcon :name="activeNote.is_locked ? 'LockClosedOutline' : 'LockOpenOutline'" :size="14" />
             </button>
             <span v-if="activeNote.updated_at" class="note-time">
-              Updated {{ formatTime(activeNote.updated_at) }}
+              更新于 {{ formatTime(activeNote.updated_at) }}
             </span>
             <span v-if="saveError" class="note-error">{{ saveError }}</span>
-            <span v-else-if="saving" class="note-saving">Saving...</span>
-            <span v-else-if="lastSaved" class="note-saved">Saved</span>
+            <span v-else-if="saving" class="note-saving">保存中...</span>
+            <span v-else-if="lastSaved" class="note-saved">已保存</span>
             <div class="note-meta-spacer" />
-            <button class="note-action-btn danger icon-only" @click="confirmDeleteCurrentNote" title="Delete note" aria-label="Delete note">
+            <button class="note-action-btn danger icon-only" @click="confirmDeleteCurrentNote" title="删除笔记" aria-label="删除笔记">
               <IonIcon name="TrashOutline" :size="14" />
             </button>
           </div>
@@ -50,11 +50,11 @@
           <div class="subpages-header">
             <span class="subpages-title">
               <IonIcon name="FolderOutline" :size="14" />
-              Sub-pages ({{ activeSubPages.length }})
+              子页面 ({{ activeSubPages.length }})
             </span>
             <div class="subpages-header-actions">
-              <button class="subpages-add" @click="createChildNote(activeNoteId!)">+ Add</button>
-              <button class="subpages-minimize-btn" @click="toggleSubpagesMinimized" :title="subpagesMinimized ? 'Expand' : 'Minimize'">
+              <button class="subpages-add" @click="createChildNote(activeNoteId!)">+ 添加</button>
+              <button class="subpages-minimize-btn" @click="toggleSubpagesMinimized" :title="subpagesMinimized ? '展开' : '收起'">
                 {{ subpagesMinimized ? '▲' : '▼' }}
               </button>
             </div>
@@ -72,7 +72,7 @@
                 <IonIcon v-else :name="hasChildNotes(sub.id) ? 'FolderOutline' : 'DocumentOutline'" :size="14" />
               </span>
               <HoverTooltipText
-                :text="sub.title || 'Untitled'"
+                :text="sub.title || '未命名'"
                 class-name="subpage-name"
               />
               <span class="subpage-time">{{ formatTime(sub.updated_at) }}</span>
@@ -85,12 +85,12 @@
         <div class="placeholder-icon">
           <IonIcon name="DocumentTextOutline" :size="48" />
         </div>
-        <p>Select a note or create a new one</p>
+        <p>选择一条笔记，或新建一条</p>
       </div>
     </div>
 
     <!-- Icon picker modal -->
-    <AppModal v-model:show="showIconPicker" title="Choose Icon" width="360px" height="auto">
+    <AppModal v-model:show="showIconPicker" title="选择图标" width="360px" height="auto">
       <IconPicker
         :current-icon="activeNote?.icon ?? null"
         @select="onIconSelect"
@@ -98,12 +98,12 @@
     </AppModal>
 
     <!-- Table reference picker -->
-    <AppModal v-model:show="showTablePicker" title="Insert Table Reference" width="400px" height="auto">
+    <AppModal v-model:show="showTablePicker" title="插入表格引用" width="400px" height="auto">
       <div class="tp-search">
-        <input v-model="tablePickerSearch" class="tp-input" placeholder="Search tables..." />
+        <input v-model="tablePickerSearch" class="tp-input" placeholder="搜索表格…" />
       </div>
       <div class="tp-list">
-        <div v-if="!filteredTables.length" class="tp-empty">No tables found</div>
+        <div v-if="!filteredTables.length" class="tp-empty">没有找到表格</div>
         <div
           v-for="t in filteredTables"
           :key="t.name"
@@ -116,7 +116,7 @@
           </span>
           <div class="tp-info">
             <span class="tp-name">{{ t.title || t.name }}</span>
-            <span class="tp-meta">{{ t.name }} · {{ t.row_count ?? 0 }} rows</span>
+            <span class="tp-meta">{{ t.name }} · {{ t.row_count ?? 0 }} 行</span>
           </div>
         </div>
       </div>
@@ -275,17 +275,17 @@ function confirmDeleteCurrentNote() {
   if (!activeNoteId.value) return
   const noteId = activeNoteId.value
   dialog.warning({
-    title: 'Delete Note',
-    content: 'This note and all its sub-notes will be moved to trash.',
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    title: '删除笔记',
+    content: '该笔记及其子笔记将移到回收站。',
+    positiveText: '删除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await notesApi.deleteNote(noteId)
         queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
         queryClient.invalidateQueries({ queryKey: ['notes-trash'], exact: false })
         await switchToNote(null)
-        message.success('Note moved to trash')
+        message.success('笔记已移到回收站')
       } catch (err) {
         message.error((err as Error).message)
       }
@@ -340,7 +340,7 @@ async function saveTitle() {
     queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
     lastSaved.value = true
   } catch (err) {
-    saveError.value = `Save failed: ${(err as Error).message}`
+    saveError.value = `保存失败：${(err as Error).message}`
   }
   saving.value = false
 }
@@ -359,7 +359,7 @@ async function saveContent() {
     )
     lastSaved.value = true
   } catch (err) {
-    saveError.value = `Save failed: ${(err as Error).message}`
+    saveError.value = `保存失败：${(err as Error).message}`
   }
   saving.value = false
 }
@@ -386,7 +386,7 @@ onBeforeUnmount(() => {
 // ── CRUD ─────────────────────────────────────────────────────
 async function createChildNote(parentId: string) {
   try {
-    const result = await notesApi.createNote({ title: 'Untitled', parent_id: parentId })
+    const result = await notesApi.createNote({ title: '未命名', parent_id: parentId })
     queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
     switchToNote(result.id)
   } catch (err) {
@@ -422,7 +422,7 @@ function formatTime(ts: number) {
   const now = new Date()
   const diffMs = now.getTime() - d.getTime()
   const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return 'just now'
+  if (diffMin < 1) return '刚刚'
   if (diffMin < 60) return `${diffMin}m ago`
   const diffHr = Math.floor(diffMin / 60)
   if (diffHr < 24) return `${diffHr}h ago`

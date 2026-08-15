@@ -35,7 +35,7 @@
         </div>
 
         <!-- Error -->
-        <div v-else-if="loadError" class="note-preview-error">Failed to load note</div>
+        <div v-else-if="loadError" class="note-preview-error">笔记加载失败</div>
 
         <!-- Content -->
         <div

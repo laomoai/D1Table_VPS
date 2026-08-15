@@ -2,15 +2,15 @@
   <div class="icon-picker">
     <!-- Tabs -->
     <div class="picker-tabs">
-      <button :class="['picker-tab', { active: tab === 'emoji' }]" @click="tab = 'emoji'">Emoji</button>
-      <button :class="['picker-tab', { active: tab === 'icons' }]" @click="tab = 'icons'">Icons</button>
+      <button :class="['picker-tab', { active: tab === 'emoji' }]" @click="tab = 'emoji'">表情</button>
+      <button :class="['picker-tab', { active: tab === 'icons' }]" @click="tab = 'icons'">图标</button>
     </div>
 
     <!-- Search (shared) -->
     <input
       v-model="search"
       class="icon-search"
-      :placeholder="tab === 'emoji' ? 'Search emoji...' : 'Search icons...'"
+      :placeholder="tab === 'emoji' ? '搜索表情…' : '搜索图标…'"
       @click.stop
     />
 
@@ -34,7 +34,7 @@
       </template>
       <!-- Search results -->
       <template v-else>
-        <div v-if="!filteredEmojis.length" class="picker-empty">No emoji found</div>
+        <div v-if="!filteredEmojis.length" class="picker-empty">没有找到表情</div>
         <div v-else class="emoji-grid">
           <button
             v-for="e in filteredEmojis"
@@ -75,7 +75,7 @@
     </div>
 
     <div class="picker-footer">
-      <button class="remove-btn" @click="$emit('select', null)">Remove icon</button>
+      <button class="remove-btn" @click="$emit('select', null)">移除图标</button>
     </div>
   </div>
 </template>
@@ -94,15 +94,15 @@ const search = ref('')
 
 // ── Emoji data (lazy loaded) ─────────────────────────────────
 const GROUP_LABELS: Record<number, { label: string; icon: string }> = {
-  0: { label: 'Smileys & Emotion', icon: '😀' },
-  1: { label: 'People & Body', icon: '👋' },
-  3: { label: 'Animals & Nature', icon: '🐵' },
-  4: { label: 'Food & Drink', icon: '🍇' },
-  5: { label: 'Travel & Places', icon: '🌍' },
-  6: { label: 'Activities', icon: '🎃' },
-  7: { label: 'Objects', icon: '👓' },
-  8: { label: 'Symbols', icon: '🔣' },
-  9: { label: 'Flags', icon: '🏁' },
+  0: { label: '表情与情绪', icon: '😀' },
+  1: { label: '人物', icon: '👋' },
+  3: { label: '动物与自然', icon: '🐵' },
+  4: { label: '食物', icon: '🍇' },
+  5: { label: '旅行与地点', icon: '🌍' },
+  6: { label: '活动', icon: '🎃' },
+  7: { label: '物品', icon: '👓' },
+  8: { label: '符号', icon: '🔣' },
+  9: { label: '旗帜', icon: '🏁' },
 }
 
 const allEmojis = shallowRef<CompactEmoji[]>([])

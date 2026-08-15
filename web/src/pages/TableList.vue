@@ -78,7 +78,7 @@
                 @click="onCardClick(t)"
               >
                 <div class="card-left">
-                  <div class="card-icon" @click.stop="openIconPicker(t)" title="Click to change icon">
+                  <div class="card-icon" @click.stop="openIconPicker(t)" title="点击更换图标">
                     <span v-if="t.icon && !t.icon.startsWith('ion:')" class="card-icon-emoji">{{ t.icon }}</span>
                     <IonIcon v-else-if="t.icon" :name="t.icon.slice(4)" :size="20" />
                     <span v-else class="card-icon-emoji" style="opacity: 0.4;">📊</span>
@@ -110,8 +110,8 @@
                   <button
                     class="card-menu-btn"
                     @click.stop
-                    title="Table actions"
-                    aria-label="Table actions"
+                    title="表格操作"
+                    aria-label="表格操作"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <circle cx="5" cy="12" r="1.75" />
@@ -128,31 +128,31 @@
         <!-- Empty state -->
         <div v-if="Object.keys(groupedData).length === 0 && !isLoading" class="empty-state">
           <div class="empty-icon-big">🔍</div>
-          <p class="empty-text">No tables found matching your criteria.</p>
+          <p class="empty-text">没有找到表格 matching your criteria.</p>
         </div>
       </template>
 
       <!-- Icon picker modal -->
-      <AppModal v-model:show="showIconPicker" title="Change Icon" width="360px" height="auto">
+      <AppModal v-model:show="showIconPicker" title="更换图标" width="360px" height="auto">
         <icon-picker
           :current-icon="iconPickerTarget?.icon ?? null"
           @select="onIconSelect"
         />
       </AppModal>
 
-      <AppModal v-model:show="showRenameTable" title="Rename Table" width="420px" height="auto">
+      <AppModal v-model:show="showRenameTable" title="重命名表格" width="420px" height="auto">
         <div class="rename-form">
-          <label class="ng-label">Display Name</label>
+          <label class="ng-label">显示名称</label>
           <input
             v-model="renameTitle"
             class="ng-input"
-            placeholder="Enter a display name"
+            placeholder="输入显示名称"
             @keyup.enter="saveRename"
           />
-          <div class="rename-meta">Table ID: {{ renameTarget?.name }}</div>
+          <div class="rename-meta">表格 ID： {{ renameTarget?.name }}</div>
           <div class="ng-footer">
-            <button class="ng-btn" @click="showRenameTable = false">Cancel</button>
-            <button class="ng-btn primary" :disabled="!renameTitle.trim()" @click="saveRename">Save</button>
+            <button class="ng-btn" @click="showRenameTable = false">取消</button>
+            <button class="ng-btn primary" :disabled="!renameTitle.trim()" @click="saveRename">保存</button>
           </div>
         </div>
       </AppModal>
@@ -163,11 +163,11 @@
       />
 
       <!-- Edit Group modal -->
-      <AppModal v-model:show="showEditGroup" title="Edit Group" width="440px" height="auto">
+      <AppModal v-model:show="showEditGroup" title="编辑分组" width="440px" height="auto">
         <div class="ng-form">
-          <label class="ng-label">Group Name</label>
-          <input v-model="editGroupName" class="ng-input" placeholder="Group name" />
-          <label class="ng-label" style="margin-top:16px;">Included Tables</label>
+          <label class="ng-label">分组名称</label>
+          <input v-model="editGroupName" class="ng-input" placeholder="分组名称" />
+          <label class="ng-label" style="margin-top:16px;">包含的表格</label>
           <div class="ng-hint">{{ editGroupTables.size }} selected</div>
           <div class="ng-table-list">
             <label
@@ -186,20 +186,20 @@
             </label>
           </div>
           <div class="ng-footer">
-            <button class="ng-btn danger" @click="deleteGroup">Delete Group</button>
+            <button class="ng-btn danger" @click="deleteGroup">删除分组</button>
             <span style="flex:1" />
-            <button class="ng-btn" @click="showEditGroup = false">Cancel</button>
-            <button class="ng-btn primary" :disabled="!editGroupName.trim()" @click="saveEditGroup">Save</button>
+            <button class="ng-btn" @click="showEditGroup = false">取消</button>
+            <button class="ng-btn primary" :disabled="!editGroupName.trim()" @click="saveEditGroup">保存</button>
           </div>
         </div>
       </AppModal>
 
       <!-- New Group modal -->
-      <AppModal v-model:show="showNewGroup" title="New Group" width="440px" height="auto">
+      <AppModal v-model:show="showNewGroup" title="新建分组" width="440px" height="auto">
         <div class="ng-form">
-          <label class="ng-label">Group Name</label>
-          <input v-model="newGroupName" class="ng-input" placeholder="e.g. Marketing, Engineering..." />
-          <label class="ng-label" style="margin-top:16px;">Included Tables</label>
+          <label class="ng-label">分组名称</label>
+          <input v-model="newGroupName" class="ng-input" placeholder="例如：市场、研发…" />
+          <label class="ng-label" style="margin-top:16px;">包含的表格</label>
           <div class="ng-hint">{{ newGroupTables.size }} selected</div>
           <div class="ng-table-list">
             <label
@@ -218,8 +218,8 @@
             </label>
           </div>
           <div class="ng-footer">
-            <button class="ng-btn" @click="showNewGroup = false">Cancel</button>
-            <button class="ng-btn primary" :disabled="!newGroupName.trim()" @click="createGroup">Save</button>
+            <button class="ng-btn" @click="showNewGroup = false">取消</button>
+            <button class="ng-btn primary" :disabled="!newGroupName.trim()" @click="createGroup">保存</button>
           </div>
         </div>
       </AppModal>
@@ -419,14 +419,14 @@ function handleCardMenuSelect(key: string, table: TableMeta) {
 
   if (key === 'delete') {
     dialog.warning({
-      title: 'Delete table',
-      content: `Delete "${table.title || table.name}"? This will remove the table and all of its records.`,
-      positiveText: 'Delete',
-      negativeText: 'Cancel',
+      title: '删除表格',
+      content: `删除「${table.title || table.name}」？表格及其全部记录都会被删除。`,
+      positiveText: '删除',
+      negativeText: '取消',
       onPositiveClick: async () => {
         try {
           await api.deleteTable(table.name)
-          message.success('Table deleted')
+          message.success('表格已删除')
           queryClient.invalidateQueries({ queryKey: ['tables'] })
           queryClient.invalidateQueries({ queryKey: ['groups'] })
         } catch (err) {
@@ -442,7 +442,7 @@ async function saveRename() {
 
   try {
     await api.updateTableTitle(renameTarget.value.name, renameTitle.value.trim())
-    message.success('Table name updated')
+    message.success('表格名称已更新')
     queryClient.invalidateQueries({ queryKey: ['tables'] })
     showRenameTable.value = false
     renameTarget.value = null
@@ -507,7 +507,7 @@ async function saveEditGroup() {
     queryClient.invalidateQueries({ queryKey: ['tables'] })
     queryClient.invalidateQueries({ queryKey: ['workspace'] })
     showEditGroup.value = false
-    message.success('Group updated')
+    message.success('分组已更新')
   } catch (err) {
     message.error((err as Error).message)
   }
@@ -516,17 +516,17 @@ async function saveEditGroup() {
 async function deleteGroup() {
   if (!editGroupId.value) return
   dialog.warning({
-    title: 'Delete group',
-    content: `Delete group "${editGroupName.value}"? Tables in this group will not be deleted.`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    title: '删除分组',
+    content: `删除分组「${editGroupName.value}」？分组里的表格不会被删除。`,
+    positiveText: '删除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await api.deleteGroup(editGroupId.value!)
         queryClient.invalidateQueries({ queryKey: ['groups'] })
         queryClient.invalidateQueries({ queryKey: ['workspace'] })
         showEditGroup.value = false
-        message.success('Group deleted')
+        message.success('分组已删除')
         if (activeTab.value === editGroupName.value) {
           activeTab.value = '最近'
         }
@@ -560,7 +560,7 @@ async function createGroup() {
     showNewGroup.value = false
     newGroupName.value = ''
     newGroupTables.value = new Set()
-    message.success('Group created')
+    message.success('分组已创建')
   } catch (err) {
     message.error((err as Error).message)
   }

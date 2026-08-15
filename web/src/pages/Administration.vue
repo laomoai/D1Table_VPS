@@ -1,8 +1,8 @@
 <template>
   <div class="admin-page">
     <div class="admin-header">
-      <h2 class="admin-title">Administration</h2>
-      <n-button type="primary" size="small" @click="showAddSpace = true">Add Space</n-button>
+      <h2 class="admin-title">管理后台</h2>
+      <n-button type="primary" size="small" @click="showAddSpace = true">添加空间</n-button>
     </div>
 
     <n-spin :show="spacesLoading">
@@ -22,36 +22,36 @@
           </div>
         </div>
       </div>
-      <div v-else-if="!spacesLoading" class="empty-hint">No spaces yet</div>
+      <div v-else-if="!spacesLoading" class="empty-hint">还没有空间</div>
     </n-spin>
   </div>
 
-  <!-- Add Space modal -->
-  <n-modal v-model:show="showAddSpace" preset="card" style="width: 420px;" title="Add Space">
+  <!-- 添加空间 modal -->
+  <n-modal v-model:show="showAddSpace" preset="card" style="width: 420px;" title="添加空间">
     <n-form label-placement="left" label-width="100">
-      <n-form-item label="Space Name">
-        <n-input v-model:value="newSpace.name" placeholder="e.g. Marketing Team" />
+      <n-form-item label="空间名称">
+        <n-input v-model:value="newSpace.name" placeholder="例如：市场团队" />
       </n-form-item>
-      <n-form-item label="Owner Email">
+      <n-form-item label="所有者邮箱">
         <n-input v-model:value="newSpace.owner_email" placeholder="owner@example.com" />
       </n-form-item>
     </n-form>
-    <div class="hint">The owner email must be a new user not yet in the system.</div>
+    <div class="hint">所有者邮箱必须是系统中还不存在的新用户。</div>
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <n-button @click="showAddSpace = false">Cancel</n-button>
-        <n-button type="primary" :loading="creatingSpace" @click="handleCreateSpace">Create</n-button>
+        <n-button @click="showAddSpace = false">取消</n-button>
+        <n-button type="primary" :loading="creatingSpace" @click="handleCreateSpace">创建</n-button>
       </div>
     </template>
   </n-modal>
 
   <!-- Space Detail modal -->
-  <n-modal v-model:show="showDetail" preset="card" style="width: 640px;" title="Space Detail">
+  <n-modal v-model:show="showDetail" preset="card" style="width: 640px;" title="空间详情">
     <n-spin :show="detailLoading">
       <template v-if="spaceDetail">
         <!-- Space name edit -->
         <div class="detail-section" style="margin-bottom: 16px;">
-          <div class="detail-section-title">Space Name</div>
+          <div class="detail-section-title">空间名称</div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <n-input v-model:value="editSpaceName" size="small" style="width: 280px;" @keyup.enter="handleRenameSpace" />
             <n-button
@@ -60,7 +60,7 @@
               :disabled="editSpaceName.trim() === spaceDetail.name"
               :loading="renamingSpace"
               @click="handleRenameSpace"
-            >Rename</n-button>
+            >重命名</n-button>
           </div>
         </div>
 
@@ -85,29 +85,29 @@
               quaternary
               :loading="removingMember === m.id"
               @click="handleRemoveMember(m)"
-            >Remove</n-button>
-            <n-tag v-else size="small" :bordered="false" type="success">Owner</n-tag>
+            >移除</n-button>
+            <n-tag v-else size="small" :bordered="false" type="success">所有者</n-tag>
           </div>
         </div>
 
         <div style="display: flex; gap: 8px; margin-top: 16px;">
-          <n-input v-model:value="newMemberEmail" size="small" placeholder="Email address" style="width: 260px;" @keyup.enter="handleAddMember" />
-          <n-button size="small" type="primary" :loading="addingMember" @click="handleAddMember">Add Member</n-button>
+          <n-input v-model:value="newMemberEmail" size="small" placeholder="邮箱地址" style="width: 260px;" @keyup.enter="handleAddMember" />
+          <n-button size="small" type="primary" :loading="addingMember" @click="handleAddMember">添加成员</n-button>
         </div>
 
-        <!-- Delete Space -->
+        <!-- 删除空间 -->
         <div class="danger-zone">
-          <div class="detail-section-title" style="color: #d03050;">Danger Zone</div>
-          <div class="hint" style="margin-bottom: 8px;">Permanently delete this space and all its data (tables, notes, members). This cannot be undone.</div>
+          <div class="detail-section-title" style="color: #d03050;">危险操作</div>
+          <div class="hint" style="margin-bottom: 8px;">将永久删除该空间及其全部数据（表格、笔记、成员），不可恢复。</div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <n-input v-model:value="deleteConfirmName" size="small" :placeholder="`Type &quot;${spaceDetail?.name}&quot; to confirm`" style="width: 280px;" />
+            <n-input v-model:value="deleteConfirmName" size="small" :placeholder="`输入「${spaceDetail?.name}」以确认`" style="width: 280px;" />
             <n-button
               size="small"
               type="error"
               :disabled="deleteConfirmName !== spaceDetail?.name"
               :loading="deletingSpace"
               @click="handleDeleteSpace"
-            >Delete Space</n-button>
+            >删除空间</n-button>
           </div>
         </div>
       </template>
@@ -122,7 +122,7 @@ import { NButton, NInput, NModal, NForm, NFormItem, NTag, NSpin, useMessage, use
 import { administrationApi, avatarUrl, type SpaceDetail } from '@/api/client'
 
 function formatLastLogin(ts: number | null): string {
-  if (!ts) return 'Never'
+  if (!ts) return '从未'
   const now = Math.floor(Date.now() / 1000)
   const diff = now - ts
   if (diff < 60) return 'Just now'
@@ -143,18 +143,18 @@ const { data: spaces, isLoading: spacesLoading } = useQuery({
   queryFn: administrationApi.getSpaces,
 })
 
-// ── Add Space ────────────────────────────────────────────────
+// ── 添加空间 ────────────────────────────────────────────────
 const showAddSpace = ref(false)
 const creatingSpace = ref(false)
 const newSpace = reactive({ name: '', owner_email: '' })
 
 async function handleCreateSpace() {
-  if (!newSpace.name.trim()) { message.warning('Space name is required'); return }
-  if (!newSpace.owner_email.trim()) { message.warning('Owner email is required'); return }
+  if (!newSpace.name.trim()) { message.warning('请填写空间名称'); return }
+  if (!newSpace.owner_email.trim()) { message.warning('请填写所有者邮箱'); return }
   creatingSpace.value = true
   try {
     await administrationApi.createSpace({ name: newSpace.name.trim(), owner_email: newSpace.owner_email.trim() })
-    message.success('Space created')
+    message.success('空间已创建')
     showAddSpace.value = false
     newSpace.name = ''
     newSpace.owner_email = ''
@@ -195,7 +195,7 @@ async function handleRenameSpace() {
   renamingSpace.value = true
   try {
     await administrationApi.renameSpace(activeSpaceId.value, name)
-    message.success('Space renamed')
+    message.success('空间已重命名')
     await refreshDetail()
     queryClient.invalidateQueries({ queryKey: ['admin-spaces'] })
   } catch (err) {
@@ -211,13 +211,13 @@ async function refreshDetail() {
   }
 }
 
-// ── Add Member ───────────────────────────────────────────────
+// ── 添加成员 ───────────────────────────────────────────────
 const newMemberEmail = ref('')
 const addingMember = ref(false)
 
 async function handleAddMember() {
   const email = newMemberEmail.value.trim()
-  if (!email) { message.warning('Please enter an email'); return }
+  if (!email) { message.warning('请输入邮箱'); return }
   if (!activeSpaceId.value) return
   addingMember.value = true
   try {
@@ -238,16 +238,16 @@ const removingMember = ref<number | null>(null)
 
 function handleRemoveMember(m: { id: number; name: string; email: string }) {
   dialog.warning({
-    title: 'Remove member',
+    title: '移除成员',
     content: `Remove "${m.name || m.email}" from this space? This will permanently delete the user account.`,
-    positiveText: 'Remove',
-    negativeText: 'Cancel',
+    positiveText: '移除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       if (!activeSpaceId.value) return
       removingMember.value = m.id
       try {
         await administrationApi.removeMember(activeSpaceId.value, m.id)
-        message.success('Member removed')
+        message.success('成员已移除')
         await refreshDetail()
         queryClient.invalidateQueries({ queryKey: ['admin-spaces'] })
       } catch (err) {
@@ -259,7 +259,7 @@ function handleRemoveMember(m: { id: number; name: string; email: string }) {
   })
 }
 
-// ── Delete Space ─────────────────────────────────────────────
+// ── 删除空间 ─────────────────────────────────────────────
 const deleteConfirmName = ref('')
 const deletingSpace = ref(false)
 
@@ -269,7 +269,7 @@ async function handleDeleteSpace() {
   deletingSpace.value = true
   try {
     await administrationApi.deleteSpace(activeSpaceId.value, deleteConfirmName.value)
-    message.success('Space deleted')
+    message.success('空间已删除')
     showDetail.value = false
     deleteConfirmName.value = ''
     queryClient.invalidateQueries({ queryKey: ['admin-spaces'] })

@@ -593,7 +593,7 @@ async function saveTableTitle(table: TableMeta) {
   }
   try {
     await api.updateTableTitle(table.name, newTitle)
-    message.success('Table name updated')
+    message.success('表格名称已更新')
     queryClient.invalidateQueries({ queryKey: ['tables'] })
   } catch (err) {
     message.error((err as Error).message)
@@ -812,7 +812,7 @@ function selectNote(id: string) {
 // Notes CRUD
 async function createNewNote() {
   try {
-    const result = await notesApi.createNote({ title: 'Untitled' })
+    const result = await notesApi.createNote({ title: '未命名' })
     queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
     router.push(`/notes/${result.id}`)
   } catch (err) {
@@ -822,10 +822,10 @@ async function createNewNote() {
 
 function archiveNote(noteId: string) {
   dialog.warning({
-    title: 'Archive note',
-    content: 'Archive this note and its sub-pages? You can restore them from Knowledge Base.',
-    positiveText: 'Archive',
-    negativeText: 'Cancel',
+    title: '归档笔记',
+    content: '归档这篇笔记及其子页面？可在知识库中恢复。',
+    positiveText: '归档',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await notesApi.archiveNote(noteId)
@@ -834,7 +834,7 @@ function archiveNote(noteId: string) {
         if (route.params.noteId === noteId) {
           router.push('/')
         }
-        message.success('Note archived', { duration: 3000 })
+        message.success('笔记已归档', { duration: 3000 })
       } catch (err) {
         message.error((err as Error).message)
       }
@@ -844,7 +844,7 @@ function archiveNote(noteId: string) {
 
 async function createChildNote(parentId: string) {
   try {
-    const result = await notesApi.createNote({ title: 'Untitled', parent_id: parentId })
+    const result = await notesApi.createNote({ title: '未命名', parent_id: parentId })
     queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
     noteExpandedFolders.value.add(parentId)
     saveNoteExpanded()

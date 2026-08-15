@@ -17,7 +17,7 @@
         </span>
         <span class="kb-tree-title">{{ node.title }}</span>
         <span v-if="node.archived_at" class="kb-tree-date">{{ formatDate(node.archived_at) }}</span>
-        <span v-else class="kb-tree-path-badge">active</span>
+        <span v-else class="kb-tree-path-badge">进行中</span>
       </div>
 
       <div v-if="node.archived_at" class="kb-tree-actions">

@@ -11,8 +11,8 @@
         <span class="preview-name">{{ imageVal.name }}</span>
         <span class="preview-size">{{ formatSize(imageVal.size) }}</span>
         <div class="preview-actions">
-          <button class="preview-btn" @click="triggerPicker" title="Replace">Replace</button>
-          <button class="preview-btn preview-btn--del" @click="handleRemove" title="Remove">Remove</button>
+          <button class="preview-btn" @click="triggerPicker" title="更换">更换</button>
+          <button class="preview-btn preview-btn--del" @click="handleRemove" title="移除">移除</button>
         </div>
       </div>
     </div>
@@ -30,14 +30,14 @@
     >
       <div v-if="uploading" class="upload-status">
         <n-spin size="small" />
-        <span>Uploading...</span>
+        <span>上传中...</span>
       </div>
       <div v-else class="upload-hint">
         <span class="upload-icon">
           <IonIcon name="ImageOutline" :size="22" />
         </span>
-        <span>Click or drag image here</span>
-        <span class="upload-sub">Supports JPG, PNG, GIF, WebP · Paste with Ctrl+V</span>
+        <span>点击或拖拽图片到这里</span>
+        <span class="upload-sub">支持 JPG、PNG、GIF、WebP · 可用 Ctrl+V 粘贴</span>
       </div>
     </div>
 

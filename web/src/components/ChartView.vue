@@ -15,29 +15,29 @@
           </span>
         </button>
       </span>
-      <span v-if="totalCount !== null" class="row-count">{{ totalCount }} records</span>
+      <span v-if="totalCount !== null" class="row-count">{{ totalCount }} 条</span>
       <div style="flex:1" />
-      <span v-if="loadingRecords" class="loading-hint">Loading…</span>
+      <span v-if="loadingRecords" class="loading-hint">加载中…</span>
       <div class="view-switcher">
-        <button class="view-btn" title="Grid view" @click="emit('switchView', 'grid')">
+        <button class="view-btn" title="表格视图" @click="emit('switchView', 'grid')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="5" height="2.5" rx="0.5"/><rect x="8" y="1" width="5" height="2.5" rx="0.5"/>
             <rect x="1" y="5.5" width="5" height="2.5" rx="0.5"/><rect x="8" y="5.5" width="5" height="2.5" rx="0.5"/>
             <rect x="1" y="10" width="5" height="2.5" rx="0.5"/><rect x="8" y="10" width="5" height="2.5" rx="0.5"/>
           </svg>
         </button>
-        <button class="view-btn" title="Gallery view" @click="emit('switchView', 'gallery')">
+        <button class="view-btn" title="画廊视图" @click="emit('switchView', 'gallery')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/>
             <rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/>
           </svg>
         </button>
-        <button class="view-btn" title="Kanban view" @click="emit('switchView', 'kanban')">
+        <button class="view-btn" title="看板视图" @click="emit('switchView', 'kanban')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="3" height="10" rx="0.5"/><rect x="5.5" y="1" width="3" height="7" rx="0.5"/><rect x="10" y="1" width="3" height="12" rx="0.5"/>
           </svg>
         </button>
-        <button class="view-btn view-btn--active" title="Chart view">
+        <button class="view-btn view-btn--active" title="图表视图">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="1,11 4,6 7,9 10,3 13,6"/>
           </svg>
@@ -48,14 +48,14 @@
     <!-- Dashboard 内容 -->
     <div class="dash-body">
       <!-- 空状态 -->
-      <div v-if="dashLoading" class="empty-state" style="color:#a3a19d;font-size:13px">Loading…</div>
+      <div v-if="dashLoading" class="empty-state" style="color:#a3a19d;font-size:13px">加载中…</div>
       <div v-else-if="widgets.length === 0" class="empty-state">
         <svg width="40" height="40" viewBox="0 0 14 14" fill="none" stroke="#ccc" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px">
           <polyline points="1,11 4,6 7,9 10,3 13,6"/>
         </svg>
-        <p class="empty-title">No widgets yet</p>
-        <p class="empty-desc">Add a KPI card, bar chart, line chart, or pie chart to visualize your data.</p>
-        <button class="empty-add-btn" @click.stop="showAddMenu = !showAddMenu">+ Add Widget
+        <p class="empty-title">还没有图表</p>
+        <p class="empty-desc">添加 KPI、柱状图、折线图或饼图来查看数据。</p>
+        <button class="empty-add-btn" @click.stop="showAddMenu = !showAddMenu">+ 添加图表
           <div v-if="showAddMenu" class="add-menu" @click.stop @mousedown.stop>
             <button v-for="t in WIDGET_TYPES" :key="t.key" class="add-menu-item"
               @click="addWidget(t.key); showAddMenu = false">
@@ -82,21 +82,21 @@
           <div class="widget-header">
             <span class="widget-title">{{ widget.title || defaultTitle(widget) }}</span>
             <div class="widget-actions">
-              <button class="waction-btn" @click="toggleEdit(widget.id)" title="Configure">
+              <button class="waction-btn" @click="toggleEdit(widget.id)" title="配置">
                 <IonIcon name="SettingsOutline" :size="14" />
               </button>
-              <button class="waction-btn waction-btn--danger" @click="removeWidget(widget.id)" title="Remove">×</button>
+              <button class="waction-btn waction-btn--danger" @click="removeWidget(widget.id)" title="移除">×</button>
             </div>
           </div>
 
           <!-- 配置面板 -->
           <div v-if="editingId === widget.id" class="widget-config">
             <div class="cfg-row">
-              <label class="cfg-label">Title</label>
-              <input v-model="widget.title" class="cfg-input" placeholder="Auto" @input="persistWidgets()" />
+              <label class="cfg-label">标题</label>
+              <input v-model="widget.title" class="cfg-input" placeholder="自动" @input="persistWidgets()" />
             </div>
             <div class="cfg-row">
-              <label class="cfg-label">Type</label>
+              <label class="cfg-label">类型</label>
               <div class="type-pills">
                 <button v-for="t in WIDGET_TYPES" :key="t.key"
                   class="type-pill" :class="{ active: widget.type === t.key }"
@@ -111,19 +111,19 @@
             <template v-if="widget.type !== 'kpi'">
               <!-- Mode (line/bar only) -->
               <div v-if="widget.type === 'line' || widget.type === 'bar'" class="cfg-row">
-                <label class="cfg-label">Mode</label>
+                <label class="cfg-label">模式</label>
                 <div class="type-pills">
                   <button class="type-pill" :class="{ active: (widget.mode ?? 'aggregate') === 'aggregate' }"
-                    @click="widget.mode = 'aggregate'; persistWidgets()">Aggregate</button>
+                    @click="widget.mode = 'aggregate'; persistWidgets()">汇总</button>
                   <button class="type-pill" :class="{ active: widget.mode === 'raw' }"
-                    @click="widget.mode = 'raw'; persistWidgets()">Raw data</button>
+                    @click="widget.mode = 'raw'; persistWidgets()">原始数据</button>
                 </div>
               </div>
 
               <!-- Raw 模式 -->
               <template v-if="widget.mode === 'raw'">
                 <div class="cfg-row">
-                  <label class="cfg-label">X axis</label>
+                  <label class="cfg-label">X 轴</label>
                   <select v-model="widget.groupByCol" class="cfg-select" @change="persistWidgets()">
                     <option value="">— record order —</option>
                     <option v-for="f in groupableFields" :key="f.column_name" :value="f.column_name">
@@ -132,7 +132,7 @@
                   </select>
                 </div>
                 <div class="cfg-row cfg-row--top">
-                  <label class="cfg-label">Y axis</label>
+                  <label class="cfg-label">Y 轴</label>
                   <div class="check-list">
                     <label v-for="f in numberFields" :key="f.column_name" class="check-item">
                       <input type="checkbox" :value="f.column_name"
@@ -141,7 +141,7 @@
                       <span class="check-dot" :style="`background:${PALETTE[numberFields.indexOf(f) % PALETTE.length]}`" />
                       {{ f.title || f.column_name }}
                     </label>
-                    <span v-if="numberFields.length === 0" class="cfg-hint">No number fields in this table</span>
+                    <span v-if="numberFields.length === 0" class="cfg-hint">这张表没有数字字段</span>
                   </div>
                 </div>
               </template>
@@ -149,7 +149,7 @@
               <!-- Aggregate 模式 -->
               <template v-else>
                 <div class="cfg-row">
-                  <label class="cfg-label">Group by</label>
+                  <label class="cfg-label">分组字段</label>
                   <select v-model="widget.groupByCol" class="cfg-select" @change="autoChartType(widget); persistWidgets()">
                     <option v-for="f in groupableFields" :key="f.column_name" :value="f.column_name">
                       {{ f.title || f.column_name }}
@@ -159,21 +159,21 @@
                 <div v-if="isDateField(widget.groupByCol)" class="cfg-row">
                   <label class="cfg-label">By</label>
                   <select v-model="widget.dateGranularity" class="cfg-select" @change="persistWidgets()">
-                    <option value="day">Day</option>
-                    <option value="week">Week</option>
-                    <option value="month">Month</option>
-                    <option value="year">Year</option>
+                    <option value="day">日</option>
+                    <option value="week">周</option>
+                    <option value="month">月</option>
+                    <option value="year">年</option>
                   </select>
                 </div>
                 <div class="cfg-row cfg-row--top">
-                  <label class="cfg-label">Values</label>
+                  <label class="cfg-label">数值</label>
                   <div class="check-list">
                     <label class="check-item">
                       <input type="checkbox" value="__count__"
                         :checked="widget.valueKeys.includes('__count__')"
                         @change="toggleYCol(widget, '__count__', 'agg')" />
                       <span class="check-dot" :style="`background:${PALETTE[0]}`" />
-                      Count of records
+                      记录数
                     </label>
                     <template v-for="f in numberFields" :key="f.column_name">
                       <label v-for="agg in ['sum','avg','max']" :key="`${agg}_${f.column_name}`" class="check-item">
@@ -192,9 +192,9 @@
 
             <!-- KPI: 单选 Value -->
             <div v-if="widget.type === 'kpi'" class="cfg-row">
-              <label class="cfg-label">Value</label>
+              <label class="cfg-label">数值</label>
               <select v-model="widget.kpiKey" class="cfg-select" @change="persistWidgets()">
-                <option value="__count__">Count of records</option>
+                <option value="__count__">记录数</option>
                 <option v-for="f in numberFields" :key="'sum_'+f.column_name" :value="'sum_'+f.column_name">
                   Sum of {{ f.title || f.column_name }}
                 </option>
@@ -208,13 +208,13 @@
             </div>
 
             <div class="cfg-row">
-              <label class="cfg-label">Width</label>
+              <label class="cfg-label">宽度</label>
               <div class="type-pills">
-                <button class="type-pill" :class="{ active: widget.span === 1 }" @click="widget.span = 1; persistWidgets()">Half</button>
-                <button class="type-pill" :class="{ active: widget.span === 2 }" @click="widget.span = 2; persistWidgets()">Full</button>
+                <button class="type-pill" :class="{ active: widget.span === 1 }" @click="widget.span = 1; persistWidgets()">半宽</button>
+                <button class="type-pill" :class="{ active: widget.span === 2 }" @click="widget.span = 2; persistWidgets()">全宽</button>
               </div>
             </div>
-            <button class="cfg-done-btn" @click="editingId = null">Done</button>
+            <button class="cfg-done-btn" @click="editingId = null">完成</button>
           </div>
 
           <!-- KPI 内容 -->
@@ -225,17 +225,17 @@
 
           <!-- 图表内容 -->
           <div v-else class="chart-body">
-            <div v-if="widget.mode === 'raw' && widget.rawYCols.length === 0" class="chart-empty">Use settings to select Y axis fields</div>
-            <div v-else-if="widget.mode !== 'raw' && widget.valueKeys.length === 0" class="chart-empty">Use settings to select values</div>
-            <div v-else-if="computeChartPayload(widget).labels.length === 0" class="chart-empty">No data</div>
+            <div v-if="widget.mode === 'raw' && widget.rawYCols.length === 0" class="chart-empty">请在设置中选择 Y 轴字段</div>
+            <div v-else-if="widget.mode !== 'raw' && widget.valueKeys.length === 0" class="chart-empty">请在设置中选择数值</div>
+            <div v-else-if="computeChartPayload(widget).labels.length === 0" class="chart-empty">暂无数据</div>
             <ChartCanvas v-else :widget="widget" :payload="computeChartPayload(widget)" />
           </div>
         </div>
 
-        <!-- Add Widget -->
+        <!-- 添加图表 -->
         <div class="add-widget-card" @click.stop="showAddMenu = !showAddMenu">
           <span class="add-icon">+</span>
-          <span class="add-label">Add Widget</span>
+          <span class="add-label">添加图表</span>
           <div v-if="showAddMenu" class="add-menu" @click.stop @mousedown.stop>
             <button v-for="t in WIDGET_TYPES" :key="t.key" class="add-menu-item"
               @click="addWidget(t.key); showAddMenu = false">
@@ -374,10 +374,10 @@ function copyTableName() {
 
 // ── Widget types ──────────────────────────────────────────
 const WIDGET_TYPES = [
-  { key: 'kpi',  icon: 'ion:SpeedometerOutline', label: 'KPI Card',   desc: 'A single big number' },
-  { key: 'bar',  icon: 'ion:BarChartOutline',    label: 'Bar Chart',  desc: 'Compare categories' },
-  { key: 'line', icon: 'ion:StatsChartOutline',  label: 'Line Chart', desc: 'Trends over time' },
-  { key: 'pie',  icon: 'ion:PieChartOutline',    label: 'Pie Chart',  desc: 'Part-to-whole' },
+  { key: 'kpi',  icon: 'ion:SpeedometerOutline', label: 'KPI 卡片',   desc: '一个醒目数字' },
+  { key: 'bar',  icon: 'ion:BarChartOutline',    label: '柱状图',  desc: '对比分类' },
+  { key: 'line', icon: 'ion:StatsChartOutline',  label: '折线图', desc: '看趋势' },
+  { key: 'pie',  icon: 'ion:PieChartOutline',    label: '饼图',  desc: '看占比' },
 ] as const
 type WidgetType = 'kpi' | 'bar' | 'line' | 'pie'
 
@@ -834,7 +834,7 @@ onUnmounted(() => {
 .chart-body { height: 240px; padding: 4px 12px 12px; }
 .chart-empty { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #a3a19d; }
 
-/* Add Widget */
+/* 添加图表 */
 .add-widget-card {
   position: relative; grid-column: span 1;
   height: 80px; border: 2px dashed #e9e9e7; border-radius: 6px;

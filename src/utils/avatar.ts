@@ -21,6 +21,7 @@ export function avatarPath(seed: string): string {
 }
 
 export function withAvatar(picture: string | null | undefined, email: string): string {
-  if (picture && picture.trim()) return picture
+  const value = picture?.trim() ?? ''
+  if (value && !value.includes('/api/avatars/')) return value
   return avatarPath(email)
 }

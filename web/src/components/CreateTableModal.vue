@@ -1,13 +1,13 @@
 <template>
-  <AppModal v-model:show="visible" title="New Table" @after-enter="focusName">
+  <AppModal v-model:show="visible" title="新建表格" @after-enter="focusName">
     <!-- Table Name -->
     <div class="section">
-      <label class="label">Table name</label>
+      <label class="label">表格名称</label>
       <input
         ref="nameInputRef"
         v-model="form.displayName"
         class="name-input"
-        placeholder="e.g. Customers, Orders, Products..."
+        placeholder="例如：客户、订单、产品…"
         @keyup.enter="handleSubmit"
       />
     </div>
@@ -15,8 +15,8 @@
     <!-- Fields -->
     <div class="section">
       <div class="section-head">
-        <span class="label">Fields</span>
-        <span class="hint">id · created_at are added automatically</span>
+        <span class="label">字段</span>
+        <span class="hint">id、created_at 会自动添加</span>
       </div>
 
       <div class="field-list" @click="closeTypePicker">
@@ -25,7 +25,7 @@
             <input
               v-model="col.displayName"
               class="col-name-input"
-              placeholder="Field name"
+              placeholder="字段名称"
             />
             <!-- Type picker button -->
             <button
@@ -51,7 +51,7 @@
               class="remove-btn"
               :disabled="form.columns.length <= 1"
               @click="removeColumn(idx)"
-              title="Remove field"
+              title="删除字段"
             >×</button>
           </div>
 
@@ -74,31 +74,31 @@
 
           <!-- Select options inline -->
           <div v-if="col.fieldType === 'select'" class="select-opts-block">
-            <div class="select-opts-title">Options for "{{ col.displayName || 'this field' }}"</div>
+            <div class="select-opts-title">「{{ col.displayName || '该字段' }}」的选项</div>
             <div v-for="(opt, oi) in col.selectOptions" :key="oi" class="select-opt-row">
               <input
                 v-model="opt.label"
                 class="opt-input"
-                placeholder="Option name"
+                placeholder="选项名称"
                 @input="opt.value = opt.label"
               />
               <input v-model="opt.color" type="color" class="color-dot" />
               <button class="remove-btn" @click="col.selectOptions.splice(oi, 1)">×</button>
             </div>
-            <button class="add-link-btn" @click="addSelectOption(col)">+ Add option</button>
+            <button class="add-link-btn" @click="addSelectOption(col)">+ 添加选项</button>
           </div>
 
           <!-- Link target table selector -->
           <div v-if="col.fieldType === 'link'" class="select-opts-block">
-            <div class="select-opts-title">Target table</div>
+            <div class="select-opts-title">关联表格</div>
             <select :value="col.linkTable ?? ''" @change="(e: Event) => { col.linkTable = (e.target as HTMLSelectElement).value || null; onLinkTableChange(col) }" class="opt-input" style="padding: 6px 8px;">
-              <option value="" disabled>Select target table...</option>
+              <option value="" disabled>选择目标表格…</option>
               <option v-for="t in availableTables" :key="t.value" :value="t.value">{{ t.label }}</option>
             </select>
             <template v-if="col.linkTable && col.linkTargetFields.length">
-              <div class="select-opts-title" style="margin-top: 8px;">Display field</div>
+              <div class="select-opts-title" style="margin-top: 8px;">显示字段</div>
               <select :value="col.linkDisplayField ?? ''" @change="(e: Event) => col.linkDisplayField = (e.target as HTMLSelectElement).value || null" class="opt-input" style="padding: 6px 8px;">
-                <option value="">Default (first text field)</option>
+                <option value="">默认（第一个文本字段）</option>
                 <option v-for="f in col.linkTargetFields" :key="f.value" :value="f.value">{{ f.label }}</option>
               </select>
             </template>
@@ -106,13 +106,13 @@
         </div>
       </div>
 
-      <button class="add-link-btn" @click="addColumn">+ Add field</button>
+      <button class="add-link-btn" @click="addColumn">+ 添加字段</button>
     </div>
 
     <template #footer>
-      <button class="btn-cancel" @click="visible = false">Cancel</button>
+      <button class="btn-cancel" @click="visible = false">取消</button>
       <button class="btn-create" :disabled="submitting || !form.displayName.trim()" @click="handleSubmit">
-        {{ submitting ? 'Creating…' : 'Create table' }}
+        {{ submitting ? '创建中…' : '创建表格' }}
       </button>
     </template>
   </AppModal>
@@ -143,7 +143,7 @@ onMounted(async () => {
   try {
     const tables = await api.getTables()
     availableTables.value = [
-      { label: 'Notes', value: '_notes' },
+      { label: '笔记', value: '_notes' },
       ...tables.map(t => ({ label: t.title || t.name, value: t.name })),
     ]
   } catch {}
@@ -160,21 +160,21 @@ interface ColDef {
 }
 
 const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
-  text:     { label: 'Text',      icon: 'T',  color: '#787774' },
-  longtext: { label: 'Long text', icon: '¶',  color: '#a3a19d' },
-  number:   { label: 'Number',    icon: '#',  color: '#4f6ef7' },
-  currency: { label: 'Currency',  icon: '¥',  color: '#18a058' },
-  percent:  { label: 'Percent',   icon: '%',  color: '#f0a020' },
-  email:    { label: 'Email',     icon: '@',  color: '#00adb5' },
-  url:      { label: 'URL',       icon: 'ion:LinkOutline', color: '#4f6ef7' },
-  date:     { label: 'Date',      icon: 'ion:CalendarOutline', color: '#8a2be2' },
-  datetime: { label: 'Datetime',  icon: 'ion:TimeOutline', color: '#d03050' },
-  checkbox: { label: 'Checkbox',  icon: 'ion:CheckboxOutline',  color: '#18a058' },
-  select:   { label: 'Select',    icon: 'ion:OptionsOutline',  color: '#f0a020' },
-  image:    { label: 'Image',     icon: 'ion:ImageOutline', color: '#e91e8c' },
-  link:     { label: 'Link',      icon: 'ion:LinkOutline', color: '#4f6ef7' },
-  totp:     { label: '2FA',       icon: 'ion:KeyOutline', color: '#d03050' },
-  password: { label: 'Password',  icon: 'ion:LockClosedOutline', color: '#8a6d3b' },
+  text:     { label: '文本',      icon: 'T',  color: '#787774' },
+  longtext: { label: '长文本', icon: '¶',  color: '#a3a19d' },
+  number:   { label: '数字',    icon: '#',  color: '#4f6ef7' },
+  currency: { label: '货币',  icon: '¥',  color: '#18a058' },
+  percent:  { label: '百分比',   icon: '%',  color: '#f0a020' },
+  email:    { label: '邮箱',     icon: '@',  color: '#00adb5' },
+  url:      { label: '链接',       icon: 'ion:LinkOutline', color: '#4f6ef7' },
+  date:     { label: '日期',      icon: 'ion:CalendarOutline', color: '#8a2be2' },
+  datetime: { label: '日期时间',  icon: 'ion:TimeOutline', color: '#d03050' },
+  checkbox: { label: '勾选',  icon: 'ion:CheckboxOutline',  color: '#18a058' },
+  select:   { label: '单选',    icon: 'ion:OptionsOutline',  color: '#f0a020' },
+  image:    { label: '图片',     icon: 'ion:ImageOutline', color: '#e91e8c' },
+  link:     { label: '关联',      icon: 'ion:LinkOutline', color: '#4f6ef7' },
+  totp:     { label: '动态口令',       icon: 'ion:KeyOutline', color: '#d03050' },
+  password: { label: '密码',  icon: 'ion:LockClosedOutline', color: '#8a6d3b' },
 }
 
 const fieldTypeToSqlite: Record<string, string> = {
@@ -277,14 +277,14 @@ async function handleSubmit() {
 
   const cols = form.value.columns.filter(c => c.displayName.trim())
   if (cols.length === 0) {
-    message.warning('Please add at least one field')
+    message.warning('请至少添加一个字段')
     return
   }
 
   // 校验 link 字段必须选择目标表
   const missingLink = cols.find(c => c.fieldType === 'link' && !c.linkTable?.trim())
   if (missingLink) {
-    message.warning(`Please select a target table for link field "${missingLink.displayName}"`)
+    message.warning(`请为关联字段「${missingLink.displayName}」选择目标表格`)
     return
   }
 
@@ -306,7 +306,7 @@ async function handleSubmit() {
         link_display_field: c.fieldType === 'link' ? c.linkDisplayField ?? undefined : undefined,
       })),
     })
-    message.success(`"${form.value.displayName}" created`)
+    message.success(`「${form.value.displayName}」已创建`)
     await queryClient.invalidateQueries({ queryKey: ['tables'] })
     await queryClient.invalidateQueries({ queryKey: ['workspace'] })
     await queryClient.refetchQueries({ queryKey: ['tables'] })

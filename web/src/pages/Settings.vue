@@ -28,7 +28,7 @@
                     </n-tag>
                     <n-tag v-else size="tiny" :bordered="false">全部文件夹</n-tag>
                     <n-tag v-if="!k.is_active" type="error" size="tiny">已撤销</n-tag>
-                    <span class="key-last-used">{{ k.last_used_at ? 'Last used ' + formatRelativeTime(k.last_used_at) : 'Never used' }}</span>
+                    <span class="key-last-used">{{ k.last_used_at ? '上次使用 ' + formatRelativeTime(k.last_used_at) : '从未使用' }}</span>
                   </div>
                 </div>
                 <n-button
@@ -63,28 +63,28 @@
             <div class="section-label">接口文档</div>
             <div style="display: flex; gap: 10px; margin-top: 8px;">
               <n-button tag="a" href="/api/docs" target="_blank" size="small" type="primary" ghost>
-                View API Docs
+                查看接口文档
               </n-button>
               <n-button tag="a" href="/api/openapi.json" target="_blank" size="small" quaternary>
                 OpenAPI JSON
               </n-button>
             </div>
-            <div class="hint" style="margin-top: 8px;">AI Agents can read this doc to auto-discover available endpoints</div>
+            <div class="hint" style="margin-top: 8px;">AI Agent 可读这份文档，自动发现可用接口</div>
           </div>
         </div>
       </n-tab-pane>
 
       <!-- ─── Tab 4: Trash ──────────────────────────────── -->
-      <n-tab-pane name="trash" tab="Trash">
+      <n-tab-pane name="trash" tab="回收站">
         <div class="tab-content">
           <div class="hint" style="margin-bottom: 16px;">
-            Deleted items are kept in the trash for 30 days, then permanently deleted automatically
+            删除的内容会在回收站保留 30 天，之后自动彻底删除
           </div>
 
           <!-- Category toggle -->
           <div class="trash-category-toggle">
-            <button class="trash-cat-btn" :class="{ active: trashCategory === 'tables' }" @click="trashCategory = 'tables'">Tables</button>
-            <button class="trash-cat-btn" :class="{ active: trashCategory === 'notes' }" @click="trashCategory = 'notes'">Notes</button>
+            <button class="trash-cat-btn" :class="{ active: trashCategory === 'tables' }" @click="trashCategory = 'tables'">表格</button>
+            <button class="trash-cat-btn" :class="{ active: trashCategory === 'notes' }" @click="trashCategory = 'notes'">笔记</button>
           </div>
 
           <!-- Tables trash -->
@@ -107,12 +107,12 @@
                           {{ formatTrashPreview(item.record_data) }}
                         </div>
                         <div class="trash-card-meta">
-                          Deleted at {{ formatTrashTime(item.deleted_at) }}
+                          删除于 {{ formatTrashTime(item.deleted_at) }}
                         </div>
                       </div>
                       <div class="trash-card-actions">
-                        <n-button size="tiny" type="primary" quaternary @click="handleRestore(item.id)">Restore</n-button>
-                        <n-button size="tiny" type="error" quaternary @click="handlePermanentDelete(item.id)">Delete permanently</n-button>
+                        <n-button size="tiny" type="primary" quaternary @click="handleRestore(item.id)">恢复</n-button>
+                        <n-button size="tiny" type="error" quaternary @click="handlePermanentDelete(item.id)">彻底删除</n-button>
                       </div>
                     </div>
                   </div>
@@ -134,11 +134,11 @@
                     quaternary
                     @click="handleEmptyTrash"
                   >
-                    Empty Trash
+                    清空回收站
                   </n-button>
                 </div>
               </div>
-              <div v-else class="empty-hint">Trash is empty</div>
+              <div v-else class="empty-hint">回收站是空的</div>
             </template>
           </template>
 
@@ -162,11 +162,11 @@
                             class-name="trash-card-table"
                           />
                         </div>
-                        <div class="trash-card-meta">Deleted at {{ formatNoteTrashTime(item.deleted_at) }}</div>
+                        <div class="trash-card-meta">删除于 {{ formatNoteTrashTime(item.deleted_at) }}</div>
                       </div>
                       <div class="trash-card-actions">
-                        <n-button size="tiny" type="primary" quaternary @click="handleNoteRestore(item.id)">Restore</n-button>
-                        <n-button size="tiny" type="error" quaternary @click="handleNotePermDelete(item.id)">Delete permanently</n-button>
+                        <n-button size="tiny" type="primary" quaternary @click="handleNoteRestore(item.id)">恢复</n-button>
+                        <n-button size="tiny" type="error" quaternary @click="handleNotePermDelete(item.id)">彻底删除</n-button>
                       </div>
                     </div>
                   </div>
@@ -184,24 +184,24 @@
                   </div>
                 </div>
               </div>
-              <div v-else class="empty-hint">Trash is empty</div>
+              <div v-else class="empty-hint">回收站是空的</div>
             </template>
           </template>
         </div>
       </n-tab-pane>
 
       <!-- ─── Tab: Import / Export ─────────────────────────── -->
-      <n-tab-pane name="import-export" tab="Import / Export">
+      <n-tab-pane name="import-export" tab="导入 / 导出">
         <div class="tab-content">
           <div class="hint" style="margin-bottom: 16px;">
-            System-level exports live here. Import for tables and notes will be added next.
+            系统级导出在这里。表格和笔记的导入稍后会加上。
           </div>
 
           <div class="export-section">
             <div class="export-card">
               <div class="export-card-main">
-                <div class="export-card-title">Notes Bundle</div>
-                <div class="export-card-desc">Export all notes, hierarchy, icons, and content into one JSON file.</div>
+                <div class="export-card-title">笔记打包</div>
+                <div class="export-card-desc">把全部笔记、层级、图标和正文导出为一个 JSON 文件。</div>
               </div>
               <n-button size="small" type="primary" :loading="exportingNotesBundle" @click="handleExportNotesBundle">
                 Export Notes
@@ -210,8 +210,8 @@
 
             <div class="export-card">
               <div class="export-card-main">
-                <div class="export-card-title">Tables Bundle</div>
-                <div class="export-card-desc">Export all tables, field definitions, icons, and records into one JSON file.</div>
+                <div class="export-card-title">表格打包</div>
+                <div class="export-card-desc">把全部表格、字段定义、图标和记录导出为一个 JSON 文件。</div>
               </div>
               <n-button size="small" type="primary" :loading="exportingTablesBundle" @click="handleExportTablesBundle">
                 Export Tables
@@ -220,17 +220,17 @@
 
             <div class="export-card">
               <div class="export-card-main">
-                <div class="export-card-title">Schema CSV</div>
-                <div class="export-card-desc">Export table and field mappings as a CSV file for audit or migration work.</div>
+                <div class="export-card-title">结构 CSV</div>
+                <div class="export-card-desc">把表格和字段映射导出为 CSV，便于核对或迁移。</div>
               </div>
-              <n-button size="small" @click="showExportSchema = true">Export Schema CSV</n-button>
+              <n-button size="small" @click="showExportSchema = true">导出结构 CSV</n-button>
             </div>
           </div>
         </div>
       </n-tab-pane>
 
       <!-- ─── Tab: Team ──────────────────────────────────────── -->
-      <n-tab-pane name="team" tab="Team">
+      <n-tab-pane name="team" tab="团队">
         <div class="tab-content">
           <div class="hint" style="margin-bottom: 16px;">
             Team members share the same tables, groups, notes and trash.
@@ -240,7 +240,7 @@
             <template v-if="teamData">
               <!-- Team name (owner only) -->
               <div v-if="isOwner" class="section" style="margin-bottom: 20px;">
-                <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">Space Name</div>
+                <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">空间名称</div>
                 <div style="display: flex; gap: 8px; align-items: center;">
                   <n-input
                     v-model:value="editTeamName"
@@ -254,20 +254,20 @@
                     :disabled="editTeamName.trim() === teamData.name"
                     :loading="renamingTeam"
                     @click="handleRenameTeam"
-                  >Rename</n-button>
+                  >重命名</n-button>
                 </div>
               </div>
               <div v-else class="section" style="margin-bottom: 20px;">
-                <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">Space Name</div>
+                <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">空间名称</div>
                 <div style="font-size: 14px; color: #1a1d2e;">{{ teamData.name }}</div>
               </div>
 
               <!-- Add member (owner only) -->
               <div v-if="isOwner" class="section" style="margin-bottom: 20px;">
-                <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">Add Member</div>
+                <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">添加成员</div>
                 <div style="display: flex; gap: 8px;">
-                  <n-input v-model:value="newMemberEmail" size="small" placeholder="Email address" style="width: 260px;" @keyup.enter="handleAddMember" />
-                  <n-button size="small" type="primary" :loading="addingMember" @click="handleAddMember">Add</n-button>
+                  <n-input v-model:value="newMemberEmail" size="small" placeholder="邮箱地址" style="width: 260px;" @keyup.enter="handleAddMember" />
+                  <n-button size="small" type="primary" :loading="addingMember" @click="handleAddMember">添加</n-button>
                 </div>
               </div>
 
@@ -282,7 +282,7 @@
                       <div class="user-email">{{ m.email }}</div>
                     </div>
                     <span class="user-last-login">{{ formatLastLogin(m.last_login) }}</span>
-                    <n-tag v-if="m.id === teamData.created_by" size="small" type="warning">Owner</n-tag>
+                    <n-tag v-if="m.id === teamData.created_by" size="small" type="warning">所有者</n-tag>
                     <div v-if="isOwner && m.id !== teamData.created_by" class="user-actions">
                       <n-button
                         size="tiny"
@@ -290,25 +290,25 @@
                         type="error"
                         :loading="removingMember === m.id"
                         @click="handleRemoveMember(m.id, m.name || m.email)"
-                      >Remove</n-button>
+                      >移除</n-button>
                     </div>
                   </div>
                 </div>
               </div>
             </template>
-            <div v-else class="empty-hint">No team info available</div>
+            <div v-else class="empty-hint">暂无团队信息</div>
           </n-spin>
         </div>
       </n-tab-pane>
 
       <!-- ─── Tab: Appearance ──────────────────────────────────── -->
-      <n-tab-pane name="appearance" tab="Appearance">
+      <n-tab-pane name="appearance" tab="外观">
         <div class="tab-content">
           <div class="section">
-            <div class="section-title">Sidebar</div>
+            <div class="section-title">侧栏</div>
 
             <div class="appearance-row">
-              <label class="appearance-label">Sidebar font size</label>
+              <label class="appearance-label">侧栏字号</label>
               <div class="appearance-control">
                 <n-slider
                   v-model:value="sidebarFontSize"
@@ -324,7 +324,7 @@
             </div>
 
             <div class="appearance-row" style="margin-top: 20px;">
-              <label class="appearance-label">Sidebar text color</label>
+              <label class="appearance-label">侧栏文字颜色</label>
               <div class="appearance-control">
                 <input
                   type="color"
@@ -337,7 +337,7 @@
             </div>
 
             <div style="margin-top: 20px;">
-              <n-button size="small" @click="resetSidebarPrefs">Reset to defaults</n-button>
+              <n-button size="small" @click="resetSidebarPrefs">恢复默认</n-button>
             </div>
           </div>
         </div>
@@ -389,15 +389,15 @@
   </n-modal>
 
   <!-- New Key display modal -->
-  <n-modal v-model:show="showNewKey" preset="card" style="width: 480px;" title="Save your API Key">
+  <n-modal v-model:show="showNewKey" preset="card" style="width: 480px;" title="请保存你的 API 密钥">
     <n-alert type="warning" style="margin-bottom: 12px;">
       This key is shown only once — you won't be able to view it again after closing!
     </n-alert>
     <n-input :value="newKeyValue" readonly type="text" />
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <n-button @click="copyKey">Copy</n-button>
-        <n-button type="primary" @click="showNewKey = false">I've saved it</n-button>
+        <n-button @click="copyKey">复制</n-button>
+        <n-button type="primary" @click="showNewKey = false">我已保存</n-button>
       </div>
     </template>
   </n-modal>
@@ -461,7 +461,7 @@ const { data: keys, isLoading: keysLoading } = useQuery({
 
 async function handleCreateKey() {
   if (!newKey.value.name.trim()) {
-    message.warning('Please enter a name')
+    message.warning('请输入名称')
     return
   }
   creating.value = true
@@ -486,13 +486,13 @@ async function handleCreateKey() {
 }
 
 function formatLastLogin(ts: number | null): string {
-  return ts ? formatRelativeTime(ts) : 'Never'
+  return ts ? formatRelativeTime(ts) : '从未'
 }
 
 function formatRelativeTime(ts: number): string {
   const now = Math.floor(Date.now() / 1000)
   const diff = now - ts
-  if (diff < 60) return 'just now'
+  if (diff < 60) return '刚刚'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
@@ -503,7 +503,7 @@ function formatRelativeTime(ts: number): string {
 async function handleRevoke(id: number) {
   try {
     await api.revokeKey(id)
-    message.success('Key revoked')
+    message.success('密钥已撤销')
     queryClient.invalidateQueries({ queryKey: ['admin-keys'] })
   } catch (err) {
     message.error((err as Error).message)
@@ -512,14 +512,14 @@ async function handleRevoke(id: number) {
 
 function handleDeleteKey(id: number, name: string) {
   dialog.warning({
-    title: 'Delete API Key',
+    title: '删除 API 密钥',
     content: `Permanently delete the revoked key "${name}"? This cannot be undone.`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    positiveText: '删除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await api.deleteKey(id)
-        message.success('Key deleted')
+        message.success('密钥已删除')
         queryClient.invalidateQueries({ queryKey: ['admin-keys'] })
       } catch (err) {
         message.error((err as Error).message)
@@ -530,7 +530,7 @@ function handleDeleteKey(id: number, name: string) {
 
 function copyKey() {
   navigator.clipboard.writeText(newKeyValue.value)
-  message.success('Copied to clipboard')
+  message.success('已复制到剪贴板')
 }
 
 function downloadJson(filename: string, payload: unknown) {
@@ -566,7 +566,7 @@ const { data: noteTree } = useQuery({
 async function handleExportNotesBundle() {
   const notes = noteTree.value ?? []
   if (notes.length === 0) {
-    message.warning('No notes to export')
+    message.warning('没有可导出的笔记')
     return
   }
 
@@ -609,7 +609,7 @@ async function blobToJson<T>(blob: Blob): Promise<T> {
 async function handleExportTablesBundle() {
   const tables = allTables.value ?? []
   if (tables.length === 0) {
-    message.warning('No tables to export')
+    message.warning('没有可导出的表格')
     return
   }
 
@@ -727,14 +727,14 @@ async function handleRestore(id: number) {
 
 async function handlePermanentDelete(id: number) {
   dialog.warning({
-    title: 'Delete Permanently',
-    content: 'This item will be permanently deleted and cannot be recovered.',
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    title: '彻底删除',
+    content: '该项目将被永久删除，无法恢复。',
+    positiveText: '删除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await api.deleteTrash(id)
-        message.success('Permanently deleted')
+        message.success('已彻底删除')
         queryClient.invalidateQueries({ queryKey: ['trash'], exact: false })
       } catch (err) {
         message.error((err as Error).message)
@@ -763,7 +763,7 @@ function formatNoteTrashTime(ts: number): string {
 async function handleNoteRestore(id: string) {
   try {
     await notesApi.restoreNote(id)
-    message.success('Note restored')
+    message.success('笔记已恢复')
     queryClient.invalidateQueries({ queryKey: ['notes-trash'], exact: false })
     queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
   } catch (err) {
@@ -773,14 +773,14 @@ async function handleNoteRestore(id: string) {
 
 async function handleNotePermDelete(id: string) {
   dialog.warning({
-    title: 'Delete Permanently',
-    content: 'This note will be permanently deleted and cannot be recovered.',
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    title: '彻底删除',
+    content: '该笔记将被永久删除，无法恢复。',
+    positiveText: '删除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await notesApi.permanentDeleteNote(id)
-        message.success('Permanently deleted')
+        message.success('已彻底删除')
         queryClient.invalidateQueries({ queryKey: ['notes-trash'], exact: false })
       } catch (err) {
         message.error((err as Error).message)
@@ -791,14 +791,14 @@ async function handleNotePermDelete(id: string) {
 
 async function handleEmptyTrash() {
   dialog.warning({
-    title: 'Empty Trash',
-    content: 'All items in the trash will be permanently deleted and cannot be recovered.',
-    positiveText: 'Delete All',
-    negativeText: 'Cancel',
+    title: '清空回收站',
+    content: '回收站内全部内容将被永久删除，无法恢复。',
+    positiveText: '全部删除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await api.emptyTrash()
-        message.success('Trash emptied')
+        message.success('回收站已清空')
         queryClient.invalidateQueries({ queryKey: ['trash'], exact: false })
       } catch (err) {
         message.error((err as Error).message)
@@ -862,7 +862,7 @@ async function handleRenameTeam() {
   renamingTeam.value = true
   try {
     await teamApi.renameTeam(name)
-    message.success('Team renamed')
+    message.success('团队已重命名')
     queryClient.invalidateQueries({ queryKey: ['team-current'] })
   } catch (err) {
     message.error((err as Error).message)
@@ -874,7 +874,7 @@ async function handleRenameTeam() {
 async function handleAddMember() {
   const email = newMemberEmail.value.trim()
   if (!email) {
-    message.warning('Please enter an email')
+    message.warning('请输入邮箱')
     return
   }
   addingMember.value = true
@@ -892,15 +892,15 @@ async function handleAddMember() {
 
 async function handleRemoveMember(userId: number, name: string) {
   dialog.warning({
-    title: 'Remove Member',
+    title: '移除成员',
     content: `Remove "${name}" from the team? This will permanently delete the user account.`,
-    positiveText: 'Remove',
-    negativeText: 'Cancel',
+    positiveText: '移除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       removingMember.value = userId
       try {
         await teamApi.removeMember(userId)
-        message.success('Member removed')
+        message.success('成员已移除')
         queryClient.invalidateQueries({ queryKey: ['team-current'] })
       } catch (err) {
         message.error((err as Error).message)

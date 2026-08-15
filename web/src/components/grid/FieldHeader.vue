@@ -122,11 +122,11 @@ function openMenu(e: MouseEvent) {
 }
 
 const menuOptions = computed(() => [
-  { label: 'Edit field', key: 'edit' },
-  { label: 'Rename', key: 'rename' },
-  { label: props.params.field?.is_hidden ? 'Show field' : 'Hide field', key: 'toggle' },
+  { label: '编辑字段', key: 'edit' },
+  { label: '重命名', key: 'rename' },
+  { label: props.params.field?.is_hidden ? '显示字段' : '隐藏字段', key: 'toggle' },
   { type: 'divider', key: 'd' },
-  { label: 'Delete field', key: 'delete', props: { style: 'color:#d03050' } },
+  { label: '删除字段', key: 'delete', props: { style: 'color:#d03050' } },
 ])
 
 function onMenuSelect(key: string) {

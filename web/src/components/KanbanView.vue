@@ -3,7 +3,7 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <span class="table-title">
-        <button class="title-icon-btn" @click="showIconPicker = true" title="Change icon">
+        <button class="title-icon-btn" @click="showIconPicker = true" title="更换图标">
           <IonIcon v-if="props.tableIcon && props.tableIcon.startsWith('ion:')" :name="props.tableIcon.slice(4)" :size="16" />
           <span v-else-if="props.tableIcon" class="title-icon-emoji">{{ props.tableIcon }}</span>
           <IonIcon v-else name="GridOutline" :size="16" />
@@ -17,48 +17,48 @@
           </span>
         </button>
       </span>
-      <span v-if="totalCount !== null" class="row-count">{{ totalCount }} records</span>
+      <span v-if="totalCount !== null" class="row-count">{{ totalCount }} 条</span>
       <div style="flex:1" />
 
       <!-- 分组字段选择 -->
-      <span class="toolbar-label">Group by</span>
+      <span class="toolbar-label">分组字段</span>
       <n-select
         v-model:value="groupField"
         :options="selectFieldOptions"
         size="small"
         style="width: 160px;"
-        placeholder="Select field"
+        placeholder="选择字段"
       />
 
-      <n-button size="small" quaternary @click="refreshAll" title="Refresh" :disabled="refreshing">
+      <n-button size="small" quaternary @click="refreshAll" title="刷新" :disabled="refreshing">
         <span :class="{ 'spin-icon': refreshing }">↻</span>
       </n-button>
-      <n-button size="small" type="primary" @click="openCreate" :disabled="props.isLocked">+ Add</n-button>
-      <n-button size="small" quaternary @click="toggleLock" :title="props.isLocked ? 'Unlock table' : 'Lock table'">
+      <n-button size="small" type="primary" @click="openCreate" :disabled="props.isLocked">+ 添加</n-button>
+      <n-button size="small" quaternary @click="toggleLock" :title="props.isLocked ? '解锁表格' : '锁定表格'">
         <IonIcon :name="props.isLocked ? 'LockClosedOutline' : 'LockOpenOutline'" :size="14" />
       </n-button>
 
       <!-- 视图切换 -->
       <div class="view-switcher">
-        <button class="view-btn" title="Grid view" @click="emit('switchView', 'grid')">
+        <button class="view-btn" title="表格视图" @click="emit('switchView', 'grid')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="5" height="2.5" rx="0.5"/><rect x="8" y="1" width="5" height="2.5" rx="0.5"/>
             <rect x="1" y="5.5" width="5" height="2.5" rx="0.5"/><rect x="8" y="5.5" width="5" height="2.5" rx="0.5"/>
             <rect x="1" y="10" width="5" height="2.5" rx="0.5"/><rect x="8" y="10" width="5" height="2.5" rx="0.5"/>
           </svg>
         </button>
-        <button class="view-btn" title="Gallery view" @click="emit('switchView', 'gallery')">
+        <button class="view-btn" title="画廊视图" @click="emit('switchView', 'gallery')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/>
             <rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/>
           </svg>
         </button>
-        <button class="view-btn view-btn--active" title="Kanban view">
+        <button class="view-btn view-btn--active" title="看板视图">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="3" height="10" rx="0.5"/><rect x="5.5" y="1" width="3" height="7" rx="0.5"/><rect x="10" y="1" width="3" height="12" rx="0.5"/>
           </svg>
         </button>
-        <button class="view-btn" title="Chart view" @click="emit('switchView', 'chart')">
+        <button class="view-btn" title="图表视图" @click="emit('switchView', 'chart')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="1,11 4,6 7,9 10,3 13,6"/>
           </svg>
@@ -70,7 +70,7 @@
     <div class="kanban-scroll">
       <div v-if="isLoading" class="kanban-empty"><n-spin /></div>
       <div v-else-if="!groupField" class="kanban-empty">
-        <p style="color:#999;font-size:14px;">Select a <b>Select</b> field to group records into columns.</p>
+        <p style="color:#999;font-size:14px;">请选择一个<b>单选</b>字段，按选项分列。</p>
       </div>
       <div v-else class="kanban-board">
         <!-- 每列一个状态 -->
@@ -117,7 +117,7 @@
             </div>
 
             <!-- 空列占位 -->
-            <div v-if="col.records.length === 0" class="column-empty">No records</div>
+            <div v-if="col.records.length === 0" class="column-empty">暂无记录</div>
           </div>
         </div>
 
@@ -175,7 +175,7 @@
     @refresh="invalidate"
   />
 
-  <AppModal v-model:show="showIconPicker" title="Choose Icon" width="360px" height="auto">
+  <AppModal v-model:show="showIconPicker" title="选择图标" width="360px" height="auto">
     <IconPicker :current-icon="props.tableIcon ?? null" @select="onIconSelect" />
   </AppModal>
 </template>
@@ -386,7 +386,7 @@ function openCreate() {
 async function handleFormSubmit(formData: Record<string, unknown>) {
   try {
     await api.createRecord(props.tableName, formData)
-    message.success('Record added')
+    message.success('记录已添加')
     invalidate()
     emit('refresh')
   } catch (err) {

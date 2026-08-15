@@ -20,10 +20,10 @@
           </div>
           <h1 class="kbd-title">{{ rootNote.title }}</h1>
           <div class="kbd-actions">
-            <button class="kbd-action-btn" @click="openSettingsModal" title="Edit cover & description">
+            <button class="kbd-action-btn" @click="openSettingsModal" title="编辑封面和简介">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
-            <button class="kbd-action-btn" @click="addChildNote" title="New sub-note (returns to sidebar)">
+            <button class="kbd-action-btn" @click="addChildNote" title="新建子笔记（会回到侧栏）">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
           </div>
@@ -88,16 +88,16 @@
         <div class="kbd-settings-form">
           <label class="kbd-label">封面图</label>
           <ImageUpload :value="settingsCoverJson" @update:value="onCoverChange" />
-          <label class="kbd-label" style="margin-top:16px">Description</label>
+          <label class="kbd-label" style="margin-top:16px">简介</label>
           <textarea
             v-model="settingsDescription"
             class="kbd-textarea"
-            placeholder="A brief description of this knowledge base..."
+            placeholder="简要描述这个知识库…"
             rows="3"
           />
           <div class="kbd-settings-footer">
-            <button class="kbd-btn" @click="showSettings = false">Cancel</button>
-            <button class="kbd-btn primary" @click="saveSettings">Save</button>
+            <button class="kbd-btn" @click="showSettings = false">取消</button>
+            <button class="kbd-btn primary" @click="saveSettings">保存</button>
           </div>
         </div>
       </AppModal>
@@ -235,7 +235,7 @@ function previewNote(noteId: string) {
 async function unarchiveChild(noteId: string) {
   try {
     await notesApi.unarchiveNote(noteId)
-    message.success('Restored to sidebar')
+    message.success('已恢复到侧栏')
     queryClient.invalidateQueries({ queryKey: ['notes'] })
   } catch (err) {
     message.error((err as Error).message)
@@ -244,7 +244,7 @@ async function unarchiveChild(noteId: string) {
 
 async function addChildNote() {
   try {
-    const result = await notesApi.createNote({ title: 'Untitled', parent_id: rootId.value })
+    const result = await notesApi.createNote({ title: '未命名', parent_id: rootId.value })
     queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
     router.push(`/notes/${result.id}`)
   } catch (err) {
@@ -284,7 +284,7 @@ async function saveSettings() {
     queryClient.invalidateQueries({ queryKey: ['notes', rootId.value] })
     queryClient.invalidateQueries({ queryKey: ['notes', 'archived-roots'] })
     showSettings.value = false
-    message.success('Settings saved')
+    message.success('设置已保存')
   } catch (err) {
     message.error((err as Error).message)
   }
