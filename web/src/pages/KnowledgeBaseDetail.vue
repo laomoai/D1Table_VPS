@@ -4,7 +4,7 @@
       <!-- Back button -->
       <button class="kbd-back" @click="router.push('/knowledge-base')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        Knowledge Base
+        知识库
       </button>
 
       <!-- Loading -->
@@ -39,7 +39,7 @@
           />
           <div v-if="contentOverflows" class="kbd-content-toggle">
             <button class="kbd-toggle-btn" @click="contentExpanded = !contentExpanded">
-              {{ contentExpanded ? 'Collapse' : 'Show more' }}
+              {{ contentExpanded ? '收起' : '展开更多' }}
               <svg :class="{ flipped: contentExpanded }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
           </div>
@@ -54,14 +54,14 @@
             v-model="searchQuery"
             type="text"
             class="kbd-search-input"
-            placeholder="Search archived notes..."
+            placeholder="搜索归档笔记…"
           />
         </div>
 
         <!-- Archived children tree -->
         <div class="kbd-section">
-          <h2 class="kbd-section-title">Archived Notes <span class="kbd-section-count">{{ filteredRootNodes.length }}</span></h2>
-          <div v-if="filteredRootNodes.length === 0" class="kbd-empty-children">{{ searchQuery ? 'No matching notes' : 'No archived notes' }}</div>
+          <h2 class="kbd-section-title">归档笔记 <span class="kbd-section-count">{{ filteredRootNodes.length }}</span></h2>
+          <div v-if="filteredRootNodes.length === 0" class="kbd-empty-children">{{ searchQuery ? '没有匹配的笔记' : '没有归档笔记' }}</div>
           <div v-else class="kbd-children-list">
             <KbTreeItem
               v-for="node in filteredRootNodes"
@@ -79,14 +79,14 @@
 
       <!-- Not found / Error -->
       <div v-else class="kbd-not-found">
-        <p style="font-size: 15px; color: #787774;">Note not found or failed to load.</p>
-        <button class="kbd-btn" @click="router.push('/knowledge-base')">Back to Knowledge Base</button>
+        <p style="font-size: 15px; color: #787774;">笔记不存在或加载失败。</p>
+        <button class="kbd-btn" @click="router.push('/knowledge-base')">返回知识库</button>
       </div>
 
       <!-- Settings modal -->
-      <AppModal v-model:show="showSettings" title="Knowledge Base Settings" width="480px" height="auto">
+      <AppModal v-model:show="showSettings" title="知识库设置" width="480px" height="auto">
         <div class="kbd-settings-form">
-          <label class="kbd-label">Cover Image</label>
+          <label class="kbd-label">封面图</label>
           <ImageUpload :value="settingsCoverJson" @update:value="onCoverChange" />
           <label class="kbd-label" style="margin-top:16px">Description</label>
           <textarea

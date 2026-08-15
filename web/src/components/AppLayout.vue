@@ -8,13 +8,13 @@
       </div>
 
       <div class="panel-header">
-        <input v-model="workspaceSearch" class="panel-search-input" placeholder="Search..." />
+        <input v-model="workspaceSearch" class="panel-search-input" placeholder="搜索…" />
         <div class="add-wrap" ref="addWrapRef">
-          <button class="panel-add-btn" title="Add" @click="toggleAddMenu">+</button>
+          <button class="panel-add-btn" title="添加" @click="toggleAddMenu">+</button>
           <div v-if="showAddMenu" class="add-menu">
-            <button @click="openFolderModal()">Folder</button>
-            <button @click="openCreateTable()">Table</button>
-            <button @click="openNoteModal()">Note</button>
+            <button @click="openFolderModal()">文件夹</button>
+            <button @click="openCreateTable()">表格</button>
+            <button @click="openNoteModal()">笔记</button>
           </div>
         </div>
       </div>
@@ -24,7 +24,7 @@
         <div class="table-list">
           <n-spin v-if="workspaceLoading" size="small" style="padding: 20px; display: flex; justify-content: center;" />
           <div v-else-if="workspaceRoots.length === 0" class="panel-empty">
-            {{ workspaceSearch ? 'No matches' : 'Empty workspace' }}
+            {{ workspaceSearch ? '没有匹配项' : '工作区是空的' }}
           </div>
           <WorkspaceTreeItem
             v-for="node in workspaceRoots"
@@ -45,7 +45,7 @@
             @rename="openRenameModal"
             @move="onManageMove"
             @delete-folder="onDeleteFolder"
-            @archive="onArchiveNote"
+            @archive="onArchiveNode"
             @reorder="handleWorkspaceReorder"
             @update:drop-state="wsDropState = $event"
           />
@@ -58,7 +58,7 @@
           @click="router.push('/knowledge-base')"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          <span>Knowledge Base</span>
+          <span>知识库</span>
           <span v-if="archivedRoots?.length" class="kb-badge">{{ archivedRoots.length }}</span>
         </div>
       </div>
@@ -69,16 +69,16 @@
           <div v-if="showUserMenu" class="user-menu" @click.stop>
             <div class="user-menu-item" @click.stop="handleMenuItem('settings')">
               <n-icon :component="SettingsIcon" size="16" />
-              <span>Settings</span>
+              <span>设置</span>
             </div>
             <div v-if="currentUser?.role === 'admin'" class="user-menu-item" @click.stop="handleMenuItem('administration')">
               <n-icon :component="AdminIcon" size="16" />
-              <span>Administration</span>
+              <span>管理后台</span>
             </div>
             <div class="user-menu-divider" />
             <div class="user-menu-item" @click.stop="handleMenuItem('logout')">
               <n-icon :component="LogoutIcon" size="16" />
-              <span>Logout</span>
+              <span>退出登录</span>
             </div>
           </div>
         </transition>
@@ -115,7 +115,7 @@
     <WorkspaceNameModal
       v-model:show="showNameModal"
       :title="nameModalTitle"
-      :kicker="nameModalKind === 'note' ? 'Note' : 'Workspace'"
+      :kicker="nameModalKind === 'note' ? '笔记' : '工作区'"
       :hint="nameModalHint"
       :placeholder="nameModalPlaceholder"
       :confirm-label="nameModalConfirm"
@@ -219,18 +219,18 @@ const folderOptions = computed(() =>
 )
 
 const nameModalTitle = computed(() => {
-  if (nameModalKind.value === 'rename') return 'Rename folder'
-  if (nameModalKind.value === 'note') return 'New note'
-  return 'New folder'
+  if (nameModalKind.value === 'rename') return '重命名文件夹'
+  if (nameModalKind.value === 'note') return '新建笔记'
+  return '新建文件夹'
 })
 const nameModalHint = computed(() => {
-  if (nameModalKind.value === 'note') return 'Opens in the editor after you name it.'
-  return 'Folders only organize the sidebar. They have no page of their own.'
+  if (nameModalKind.value === 'note') return '命名后会打开编辑器。'
+  return '文件夹只用来整理侧栏，本身没有独立页面。'
 })
 const nameModalPlaceholder = computed(() => (
-  nameModalKind.value === 'note' ? 'e.g. Meeting notes' : 'e.g. Clients, Research, Archive'
+  nameModalKind.value === 'note' ? '例如：会议记录' : '例如：客户、研究、归档'
 ))
-const nameModalConfirm = computed(() => (nameModalKind.value === 'rename' ? 'Save' : 'Create'))
+const nameModalConfirm = computed(() => (nameModalKind.value === 'rename' ? '保存' : '创建'))
 
 function toggleAddMenu() {
   showAddMenu.value = !showAddMenu.value
@@ -307,19 +307,31 @@ function onTableCreated(name: string) {
   createTargetFolder.value = null
 }
 
-function onArchiveNote(noteId: string) {
+function onArchiveNode(node: WorkspaceNode) {
+  const isTable = node.kind === 'table'
   dialog.warning({
-    title: 'Archive to Knowledge Base',
-    content: 'This note leaves the sidebar. You can restore it from Knowledge Base.',
-    positiveText: 'Archive',
-    negativeText: 'Cancel',
+    title: '归档到知识库',
+    content: isTable
+      ? '该表格会从侧栏和工作台隐藏，可在知识库中恢复。'
+      : '该笔记会从侧栏移出，可在知识库中恢复。',
+    positiveText: '归档',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await notesApi.archiveNote(noteId)
+        if (isTable) {
+          if (!node.ref) return
+          await api.archiveTable(node.ref)
+          queryClient.invalidateQueries({ queryKey: ['tables'] })
+          if (route.params.tableName === node.ref) router.push('/')
+        } else if (node.ref) {
+          await notesApi.archiveNote(node.ref)
+          queryClient.invalidateQueries({ queryKey: ['notes'] })
+          if (route.params.noteId === node.ref) router.push('/')
+        }
         queryClient.invalidateQueries({ queryKey: ['workspace'] })
-        queryClient.invalidateQueries({ queryKey: ['notes'] })
-        if (route.params.noteId === noteId) router.push('/')
-        message.success('Moved to Knowledge Base')
+        queryClient.invalidateQueries({ queryKey: ['notes', 'archived-roots'] })
+        queryClient.invalidateQueries({ queryKey: ['tables', 'archived'] })
+        message.success('已移到知识库')
       } catch (err) {
         message.error((err as Error).message)
       }
@@ -329,10 +341,10 @@ function onArchiveNote(noteId: string) {
 
 function onDeleteFolder(id: string) {
   dialog.warning({
-    title: 'Delete folder',
-    content: 'Only empty folders can be deleted.',
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
+    title: '删除文件夹',
+    content: '只能删除空文件夹。',
+    positiveText: '删除',
+    negativeText: '取消',
     onPositiveClick: async () => {
       try {
         await workspaceApi.deleteFolder(id)

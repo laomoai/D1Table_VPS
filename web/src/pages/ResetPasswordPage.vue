@@ -1,13 +1,13 @@
 <template>
   <div class="login-page">
     <div class="login-card">
-      <div class="login-logo">Set password</div>
+      <div class="login-logo">设置密码</div>
       <n-alert v-if="errorMsg" type="error" style="margin: 16px 0;">{{ errorMsg }}</n-alert>
       <n-form>
-        <n-form-item label="New password">
+        <n-form-item label="新密码">
           <n-input v-model:value="password" type="password" show-password-on="click" />
         </n-form-item>
-        <n-button type="primary" block :loading="loading" @click="submit">Save and sign in</n-button>
+        <n-button type="primary" block :loading="loading" @click="submit">保存并登录</n-button>
       </n-form>
     </div>
   </div>

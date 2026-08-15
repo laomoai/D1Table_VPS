@@ -117,6 +117,15 @@ export const api = {
   getTables: () =>
     http.get<{ data: TableMeta[] }>('/tables').then((r) => r.data.data),
 
+  getArchivedTables: () =>
+    http.get<{ data: TableMeta[] }>('/tables', { params: { archived: 1 } }).then((r) => r.data.data),
+
+  archiveTable: (tableName: string) =>
+    http.post<{ data: { success: boolean } }>(`/tables/${tableName}/archive`).then((r) => r.data.data),
+
+  unarchiveTable: (tableName: string) =>
+    http.post<{ data: { success: boolean } }>(`/tables/${tableName}/unarchive`).then((r) => r.data.data),
+
   /** 获取表结构 */
   getTableSchema: (tableName: string) =>
     http.get<{ data: { name: string; columns: ColumnDef[] } }>(`/tables/${tableName}`).then((r) => r.data.data),

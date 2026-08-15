@@ -444,6 +444,9 @@ export async function listWorkspaceNodes(
          AND NOT (n.kind = 'note' AND EXISTS (
            SELECT 1 FROM _notes nt WHERE nt.id = n.ref AND (nt.deleted_at IS NOT NULL OR nt.archived_at IS NOT NULL)
          ))
+         AND NOT (n.kind = 'table' AND EXISTS (
+           SELECT 1 FROM _meta m WHERE m.table_name = n.ref AND m.archived_at IS NOT NULL
+         ))
        ORDER BY n.sort_order ASC, n.created_at ASC`
     : `SELECT n.id, n.kind, n.parent_id, n.sort_order, n.title, n.ref, n.group_id, n.team_id,
               CASE
@@ -454,6 +457,9 @@ export async function listWorkspaceNodes(
        FROM _workspace_nodes n
        WHERE NOT (n.kind = 'note' AND EXISTS (
            SELECT 1 FROM _notes nt WHERE nt.id = n.ref AND (nt.deleted_at IS NOT NULL OR nt.archived_at IS NOT NULL)
+         ))
+         AND NOT (n.kind = 'table' AND EXISTS (
+           SELECT 1 FROM _meta m WHERE m.table_name = n.ref AND m.archived_at IS NOT NULL
          ))
        ORDER BY n.sort_order ASC, n.created_at ASC`
 

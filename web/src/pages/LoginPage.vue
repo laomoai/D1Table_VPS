@@ -3,7 +3,7 @@
     <div class="login-card">
       <div class="login-brand">
         <div class="login-logo">D1Table</div>
-        <div class="login-subtitle">Data tables on your own server</div>
+        <div class="login-subtitle">部署在你自己服务器上的数据表格</div>
       </div>
 
       <n-alert v-if="errorMsg" type="error" style="margin-bottom: 16px;">
@@ -14,41 +14,41 @@
       </n-alert>
 
       <n-form v-if="mode !== 'forgot'" @submit.prevent="submit">
-        <n-form-item label="Email">
+        <n-form-item label="邮箱">
           <n-input v-model:value="email" type="text" placeholder="you@example.com" />
         </n-form-item>
-        <n-form-item v-if="mode === 'register'" label="Name">
-          <n-input v-model:value="name" placeholder="Display name" />
+        <n-form-item v-if="mode === 'register'" label="名称">
+          <n-input v-model:value="name" placeholder="显示名称" />
         </n-form-item>
-        <n-form-item label="Password">
+        <n-form-item label="密码">
           <n-input
             v-model:value="password"
             type="password"
             show-password-on="click"
-            placeholder="At least 8 characters"
+            placeholder="至少 8 位"
             @keyup.enter="submit"
           />
         </n-form-item>
         <n-button type="primary" block :loading="loading" @click="submit">
-          {{ mode === 'register' ? 'Create admin account' : 'Sign in' }}
+          {{ mode === 'register' ? '创建管理员账号' : '登录' }}
         </n-button>
       </n-form>
 
       <n-form v-else @submit.prevent="sendReset">
-        <n-form-item label="Email">
+        <n-form-item label="邮箱">
           <n-input v-model:value="email" placeholder="you@example.com" />
         </n-form-item>
         <n-button type="primary" block :loading="loading" @click="sendReset">
-          Send reset link
+          发送重置链接
         </n-button>
       </n-form>
 
       <div class="login-links">
-        <button v-if="mode === 'login'" type="button" class="link-btn" @click="mode = 'forgot'">Forgot password</button>
+        <button v-if="mode === 'login'" type="button" class="link-btn" @click="mode = 'forgot'">忘记密码</button>
         <button v-if="mode === 'login' && bootstrapOpen" type="button" class="link-btn" @click="mode = 'register'">
-          First-time setup
+          首次初始化
         </button>
-        <button v-if="mode !== 'login'" type="button" class="link-btn" @click="mode = 'login'">Back to sign in</button>
+        <button v-if="mode !== 'login'" type="button" class="link-btn" @click="mode = 'login'">返回登录</button>
       </div>
     </div>
   </div>
@@ -75,7 +75,7 @@ const bootstrapOpen = ref(false)
 const queryError = computed(() => {
   const err = route.query.error as string
   if (!err) return ''
-  return 'Sign-in failed. Please try again.'
+  return '登录失败，请重试。'
 })
 
 onMounted(() => {
@@ -110,7 +110,7 @@ async function submit() {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Request failed'
     if (msg.toLowerCase().includes('closed') || msg.toLowerCase().includes('403')) {
-      errorMsg.value = 'Registration is closed. Ask an admin for an invite.'
+      errorMsg.value = '注册已关闭，请联系管理员邀请。'
     } else {
       errorMsg.value = msg
     }
@@ -125,7 +125,7 @@ async function sendReset() {
   loading.value = true
   try {
     await http.post('/auth/forgot-password', { email: email.value })
-    infoMsg.value = 'If that account exists, a reset email has been sent.'
+    infoMsg.value = '如果该账号存在，重置邮件已发出。'
     mode.value = 'login'
   } catch (e) {
     errorMsg.value = e instanceof Error ? e.message : 'Request failed'

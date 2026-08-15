@@ -1,12 +1,12 @@
 <template>
   <div class="settings-page">
     <div class="settings-header">
-      <h2 class="settings-title">Settings</h2>
+      <h2 class="settings-title">设置</h2>
     </div>
 
     <n-tabs type="line" animated>
       <!-- ─── Tab: API Keys ──────────────────────────────── -->
-      <n-tab-pane name="keys" tab="API Keys">
+      <n-tab-pane name="keys" tab="API 密钥">
         <div class="tab-content">
           <n-spin v-if="keysLoading" />
           <template v-else>
@@ -21,13 +21,13 @@
                   <div class="key-card-meta">
                     <code class="key-prefix">{{ k.key_prefix }}...</code>
                     <n-tag :type="k.type === 'readonly' ? 'info' : 'warning'" size="tiny">
-                      {{ k.type === 'readonly' ? 'Read-only' : 'Read-write' }}
+                      {{ k.type === 'readonly' ? '只读' : '读写' }}
                     </n-tag>
                     <n-tag v-if="k.scope === 'groups'" size="tiny" :bordered="false">
-                      {{ k.groups?.map(g => g.name).join(', ') || 'No folders' }}
+                      {{ k.groups?.map(g => g.name).join(', ') || '未选文件夹' }}
                     </n-tag>
-                    <n-tag v-else size="tiny" :bordered="false">All folders</n-tag>
-                    <n-tag v-if="!k.is_active" type="error" size="tiny">Revoked</n-tag>
+                    <n-tag v-else size="tiny" :bordered="false">全部文件夹</n-tag>
+                    <n-tag v-if="!k.is_active" type="error" size="tiny">已撤销</n-tag>
                     <span class="key-last-used">{{ k.last_used_at ? 'Last used ' + formatRelativeTime(k.last_used_at) : 'Never used' }}</span>
                   </div>
                 </div>
@@ -38,7 +38,7 @@
                   quaternary
                   @click="handleRevoke(k.id)"
                 >
-                  Revoke
+                  撤销
                 </n-button>
                 <n-button
                   v-else
@@ -47,20 +47,20 @@
                   quaternary
                   @click="handleDeleteKey(k.id, k.name)"
                 >
-                  Delete
+                  删除
                 </n-button>
               </div>
             </div>
-            <div v-else class="empty-hint">No API Keys yet</div>
+            <div v-else class="empty-hint">还没有 API 密钥</div>
 
             <n-button type="primary" size="small" style="margin-top: 16px;" @click="showCreate = true">
-              Create New Key
+              创建新密钥
             </n-button>
           </template>
 
           <!-- API Docs link -->
           <div class="section" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f0f0f0;">
-            <div class="section-label">API Documentation</div>
+            <div class="section-label">接口文档</div>
             <div style="display: flex; gap: 10px; margin-top: 8px;">
               <n-button tag="a" href="/api/docs" target="_blank" size="small" type="primary" ghost>
                 View API Docs
@@ -347,43 +347,43 @@
   </div>
 
   <!-- Create Key modal -->
-  <n-modal v-model:show="showCreate" preset="card" style="width: 480px;" title="Create API Key">
+  <n-modal v-model:show="showCreate" preset="card" style="width: 480px;" title="创建 API 密钥">
     <n-form :model="newKey" label-placement="left" label-width="80">
-      <n-form-item label="Name" :rule="{ required: true, message: 'Please enter a name' }">
-        <n-input v-model:value="newKey.name" placeholder="e.g. AI Agent Read-only Key" />
+      <n-form-item label="名称" :rule="{ required: true, message: '请输入名称' }">
+        <n-input v-model:value="newKey.name" placeholder="例如：只读 Agent 密钥" />
       </n-form-item>
-      <n-form-item label="Permission">
+      <n-form-item label="权限">
         <n-radio-group v-model:value="newKey.type">
           <n-space>
-            <n-radio value="readonly">Read-only</n-radio>
-            <n-radio value="readwrite">Read-write</n-radio>
+            <n-radio value="readonly">只读</n-radio>
+            <n-radio value="readwrite">读写</n-radio>
           </n-space>
         </n-radio-group>
       </n-form-item>
-      <n-form-item label="Scope">
+      <n-form-item label="范围">
         <n-radio-group v-model:value="newKey.scope">
           <n-space>
-            <n-radio value="all">All folders</n-radio>
-            <n-radio value="groups">Selected folders</n-radio>
+            <n-radio value="all">全部文件夹</n-radio>
+            <n-radio value="groups">指定文件夹</n-radio>
           </n-space>
         </n-radio-group>
       </n-form-item>
-      <n-form-item v-if="newKey.scope === 'groups'" label="Folders">
+      <n-form-item v-if="newKey.scope === 'groups'" label="文件夹">
         <template v-if="groupList?.length">
           <n-checkbox-group v-model:value="newKey.group_ids">
             <n-space>
               <n-checkbox v-for="g in groupList" :key="g.id" :value="g.id" :label="g.name" />
             </n-space>
           </n-checkbox-group>
-          <p class="hint" style="margin-top: 8px;">Includes tables and notes in these folders and their nested folders.</p>
+          <p class="hint" style="margin-top: 8px;">包含这些文件夹及其子文件夹里的表格和笔记。</p>
         </template>
-        <span v-else class="hint">No folders yet — create one from the sidebar first</span>
+        <span v-else class="hint">还没有文件夹，请先在侧栏创建一个</span>
       </n-form-item>
     </n-form>
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <n-button @click="showCreate = false">Cancel</n-button>
-        <n-button type="primary" :loading="creating" @click="handleCreateKey">Create</n-button>
+        <n-button @click="showCreate = false">取消</n-button>
+        <n-button type="primary" :loading="creating" @click="handleCreateKey">创建</n-button>
       </div>
     </template>
   </n-modal>

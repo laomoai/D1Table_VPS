@@ -4,8 +4,8 @@
       <!-- Header -->
       <div class="kb-header">
         <div>
-          <h1 class="kb-title">Knowledge Base</h1>
-          <p class="kb-desc">Notes you archived from the sidebar. They stay here until you restore them.</p>
+          <h1 class="kb-title">知识库</h1>
+          <p class="kb-desc">从侧栏归档的笔记和表格会集中在这里，需要时可以恢复。</p>
         </div>
       </div>
 
@@ -18,7 +18,7 @@
           v-model="searchQuery"
           type="text"
           class="kb-search-input"
-          placeholder="Search knowledge base..."
+          placeholder="搜索知识库…"
         />
       </div>
 
@@ -27,11 +27,37 @@
 
       <!-- Error -->
       <div v-else-if="error" class="kb-empty">
-        <p class="kb-empty-text" style="color: #e03e3e;">Failed to load knowledge base</p>
+        <p class="kb-empty-text" style="color: #e03e3e;">知识库加载失败</p>
       </div>
 
-      <!-- Cards grid -->
-      <div v-else-if="roots.length > 0" class="kb-cards">
+      <template v-else-if="roots.length > 0 || archivedTables.length > 0">
+      <div v-if="archivedTables.length > 0" class="kb-section">
+        <h2 class="kb-section-title">归档表格</h2>
+        <div class="kb-cards">
+          <div
+            v-for="t in archivedTables"
+            :key="t.name"
+            class="kb-card"
+            @click="openArchivedTable(t.name)"
+          >
+            <div class="kb-card-body">
+              <div class="kb-card-icon">
+                <IonIcon v-if="t.icon && t.icon.startsWith('ion:')" :name="t.icon.slice(4)" :size="24" />
+                <span v-else-if="t.icon">{{ t.icon }}</span>
+                <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9b9a97" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              </div>
+              <h3 class="kb-card-title">{{ t.title || t.name }}</h3>
+              <div class="kb-card-meta">
+                <span class="kb-card-count">{{ t.row_count ?? 0 }} 行</span>
+                <button class="kb-restore-btn" @click.stop="restoreTable(t.name)">恢复到侧栏</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="roots.length > 0" class="kb-section">
+        <h2 class="kb-section-title">归档笔记</h2>
+      <div class="kb-cards">
         <div
           v-for="root in roots"
           :key="root.id"
@@ -50,19 +76,21 @@
             <h3 class="kb-card-title">{{ root.title }}</h3>
             <p v-if="root.description" class="kb-card-desc">{{ root.description }}</p>
             <div class="kb-card-meta">
-              <span class="kb-card-count">{{ root.archived_count }} archived notes</span>
+              <span class="kb-card-count">{{ root.archived_count }} 篇归档笔记</span>
             </div>
           </div>
         </div>
       </div>
+      </div>
+      </template>
 
       <!-- Empty state -->
       <div v-else class="kb-empty">
         <div class="kb-empty-icon">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c8c7c5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         </div>
-        <p class="kb-empty-text">{{ searchQuery ? 'No matching results' : 'No archived notes yet' }}</p>
-        <p class="kb-empty-hint">Hover a note in the sidebar, open •••, then choose Archive to Knowledge Base.</p>
+        <p class="kb-empty-text">{{ searchQuery ? '没有匹配结果' : '还没有归档内容' }}</p>
+        <p class="kb-empty-hint">在侧栏把鼠标移到笔记或表格上，点 •••，选择「归档到知识库」。</p>
       </div>
     </div>
   </div>
@@ -71,18 +99,48 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuery } from '@tanstack/vue-query'
-import { NSpin } from 'naive-ui'
-import { notesApi } from '@/api/client'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { NSpin, useMessage } from 'naive-ui'
+import { api, notesApi } from '@/api/client'
 import IonIcon from '@/components/IonIcon.vue'
 
 const router = useRouter()
+const queryClient = useQueryClient()
+const message = useMessage()
 const searchQuery = ref('')
 
 const { data: archivedRoots, isLoading, error } = useQuery({
   queryKey: ['notes', 'archived-roots'],
   queryFn: () => notesApi.getArchivedRoots(),
 })
+
+const { data: archivedTableList } = useQuery({
+  queryKey: ['tables', 'archived'],
+  queryFn: () => api.getArchivedTables(),
+})
+
+const archivedTables = computed(() => {
+  const list = archivedTableList.value ?? []
+  if (!searchQuery.value) return list
+  const q = searchQuery.value.toLowerCase()
+  return list.filter((t) => (t.title || t.name).toLowerCase().includes(q) || t.name.toLowerCase().includes(q))
+})
+
+function openArchivedTable(name: string) {
+  router.push(`/tables/${name}`)
+}
+
+async function restoreTable(name: string) {
+  try {
+    await api.unarchiveTable(name)
+    queryClient.invalidateQueries({ queryKey: ['tables'] })
+    queryClient.invalidateQueries({ queryKey: ['tables', 'archived'] })
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    message.success('表格已恢复到侧栏')
+  } catch (err) {
+    message.error((err as Error).message)
+  }
+}
 
 const roots = computed(() => {
   if (!archivedRoots.value) return []
@@ -163,6 +221,26 @@ const roots = computed(() => {
   border-color: #e9e9e7;
   box-shadow: inset 0 0 0 1px rgba(35, 131, 226, 0.5), 0 0 0 2px rgba(35, 131, 226, 0.2);
 }
+
+.kb-section { margin-bottom: 32px; }
+.kb-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #37352f;
+  margin: 0 0 12px;
+}
+.kb-restore-btn {
+  margin-left: auto;
+  border: none;
+  background: rgba(35, 131, 226, 0.08);
+  color: #0b6bcb;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.kb-restore-btn:hover { background: rgba(35, 131, 226, 0.14); }
+.kb-card-meta { display: flex; align-items: center; gap: 8px; }
 
 /* Cards grid */
 .kb-cards {

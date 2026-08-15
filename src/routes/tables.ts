@@ -67,10 +67,12 @@ tables.get('/', async (c) => {
   }
 
   // team 过滤：有 teamId 时只查自己团队的表
+  const archivedOnly = c.req.query('archived') === '1'
   const teamId = c.get('teamId')
+  const archiveClause = archivedOnly ? 'archived_at IS NOT NULL' : 'archived_at IS NULL'
   const metaQuery = teamId !== undefined
-    ? c.env.DB.prepare(`SELECT table_name, title, row_count, icon, is_locked FROM _meta WHERE team_id = ?`).bind(teamId)
-    : c.env.DB.prepare(`SELECT table_name, title, row_count, icon, is_locked FROM _meta`)
+    ? c.env.DB.prepare(`SELECT table_name, title, row_count, icon, is_locked, archived_at FROM _meta WHERE team_id = ? AND ${archiveClause}`).bind(teamId)
+    : c.env.DB.prepare(`SELECT table_name, title, row_count, icon, is_locked, archived_at FROM _meta WHERE ${archiveClause}`)
   const groupQuery = teamId !== undefined
     ? c.env.DB.prepare(
         `SELECT gt.table_name, gt.group_id, g.name as group_name
@@ -84,7 +86,7 @@ tables.get('/', async (c) => {
 
   // 并行获取 _meta（行数+显示名）和分组信息，避免串行等待
   const [metaRows, gtRows] = await Promise.all([
-    metaQuery.all<{ table_name: string; title: string | null; row_count: number | null; icon: string | null; is_locked: number }>(),
+    metaQuery.all<{ table_name: string; title: string | null; row_count: number | null; icon: string | null; is_locked: number; archived_at: number | null }>(),
     groupQuery.all<{ table_name: string; group_id: number; group_name: string }>(),
   ])
 
@@ -115,16 +117,42 @@ tables.get('/', async (c) => {
     tableNames = tableNames.filter(name => teamSet.has(name))
   }
 
-  const result = tableNames.map((name) => ({
-    name,
-    title: titleMap[name] ?? null,
-    row_count: countMap[name] ?? 0,
-    groups: groupsByTable.get(name) ?? [],
-    icon: iconMap[name] ?? null,
-    is_locked: lockMap[name] ?? false,
-  }))
+  const result = tableNames
+    .filter((name) => titleMap[name] !== undefined || countMap[name] !== undefined || iconMap[name] !== undefined || lockMap[name] !== undefined)
+    .map((name) => ({
+      name,
+      title: titleMap[name] ?? null,
+      row_count: countMap[name] ?? 0,
+      groups: groupsByTable.get(name) ?? [],
+      icon: iconMap[name] ?? null,
+      is_locked: lockMap[name] ?? false,
+    }))
 
   return c.json({ data: result })
+})
+
+tables.post('/:tableName/archive', requireWriteMiddleware, async (c) => {
+  const { tableName } = c.req.param()
+  const allTables = await getUserTables(c.env.DB)
+  if (!allTables.includes(tableName)) {
+    return c.json({ error: { code: 'TABLE_NOT_FOUND', message: `Table "${tableName}" not found` } }, 404)
+  }
+  await c.env.DB.prepare(
+    `UPDATE _meta SET archived_at = unixepoch() WHERE table_name = ? AND archived_at IS NULL`,
+  ).bind(tableName).run()
+  return c.json({ data: { success: true } })
+})
+
+tables.post('/:tableName/unarchive', requireWriteMiddleware, async (c) => {
+  const { tableName } = c.req.param()
+  const allTables = await getUserTables(c.env.DB)
+  if (!allTables.includes(tableName)) {
+    return c.json({ error: { code: 'TABLE_NOT_FOUND', message: `Table "${tableName}" not found` } }, 404)
+  }
+  await c.env.DB.prepare(
+    `UPDATE _meta SET archived_at = NULL WHERE table_name = ?`,
+  ).bind(tableName).run()
+  return c.json({ data: { success: true } })
 })
 
 /**

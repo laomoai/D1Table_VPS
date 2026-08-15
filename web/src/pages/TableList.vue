@@ -4,12 +4,12 @@
       <!-- Header -->
       <div class="dash-header">
         <div>
-          <h1 class="dash-title">Tables</h1>
-          <p class="dash-desc">Manage all your data tables</p>
+          <h1 class="dash-title">表格</h1>
+          <p class="dash-desc">管理你的全部数据表</p>
         </div>
         <button class="new-table-btn" @click="showCreateTable = true">
           <span class="btn-icon">+</span>
-          New Table
+          新建表格
         </button>
       </div>
 
@@ -24,7 +24,7 @@
             v-model="searchQuery"
             type="text"
             class="search-input"
-            placeholder="Search tables..."
+            placeholder="搜索表格…"
           />
         </div>
 
@@ -37,14 +37,14 @@
             :class="{ active: activeTab === tab }"
             @click="activeTab = tab"
           >
-            <span v-if="tab === 'Recent'" class="tab-clock-icon">
+            <span v-if="tab === '最近'" class="tab-clock-icon">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </span>
             {{ tab }}
             <span v-if="activeTab === tab" class="tab-indicator" />
           </button>
           <span class="tab-separator" />
-          <button class="tab-add-btn" @click="showNewGroup = true" title="New Group">+</button>
+          <button class="tab-add-btn" @click="showNewGroup = true" title="新建分组">+</button>
         </div>
       </div>
 
@@ -58,18 +58,18 @@
             <div class="group-section-header">
               <div class="group-header-left">
                 <h2 class="group-section-name">{{ groupName }}</h2>
-                <span class="group-section-count">{{ items.length }} tables</span>
+                <span class="group-section-count">{{ items.length }} 张表</span>
                 <button
                   v-if="getGroupByName(groupName)"
                   class="group-settings-btn"
                   @click="openEditGroup(groupName)"
-                  title="Edit group"
+                  title="编辑分组"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
               </div>
             </div>
-            <div v-if="items.length === 0" class="group-empty">No tables in this folder yet. Use the gear to add some.</div>
+            <div v-if="items.length === 0" class="group-empty">这个文件夹里还没有表格，点齿轮添加。</div>
             <div v-else class="table-cards">
               <div
                 v-for="t in items"
@@ -96,7 +96,7 @@
                         </span>
                       </span>
                       <span class="card-count">{{ t.row_count ?? 0 }} records</span>
-                      <span v-if="activeTab === 'Recent' && recentAccess[t.name]" class="card-last-access">
+                      <span v-if="activeTab === '最近' && recentAccess[t.name]" class="card-last-access">
                         · {{ formatDate(recentAccess[t.name]) }}
                       </span>
                     </div>
@@ -258,15 +258,15 @@ const { data: groups } = useQuery({
 
 // ── State ──
 const searchQuery = ref('')
-const activeTab = ref('Recent')
+const activeTab = ref('最近')
 const showCreateTable = ref(false)
 const copiedId = ref<string | null>(null)
 const showRenameTable = ref(false)
 const renameTarget = ref<TableMeta | null>(null)
 const renameTitle = ref('')
 const cardMenuOptions = [
-  { label: 'Rename', key: 'rename' },
-  { label: 'Delete', key: 'delete' },
+  { label: '重命名', key: 'rename' },
+  { label: '删除', key: 'delete' },
 ]
 
 // ── Recent access tracking via localStorage ──
@@ -324,7 +324,7 @@ const dynamicGroupNames = computed(() => {
 })
 
 const tabs = computed(() => {
-  return ['Recent', ...dynamicGroupNames.value, 'All']
+  return ['最近', ...dynamicGroupNames.value, '全部']
 })
 
 // ── Filtering ──
@@ -341,14 +341,14 @@ const filteredData = computed(() => {
   }
 
   // Tab filter
-  if (activeTab.value === 'Recent') {
+  if (activeTab.value === '最近') {
     // Sort by last accessed (most recent first), tables never accessed go to bottom
     filtered = [...filtered].sort((a, b) => {
       const aTime = recentAccess.value[a.name] || 0
       const bTime = recentAccess.value[b.name] || 0
       return bTime - aTime
     })
-  } else if (activeTab.value !== 'All') {
+  } else if (activeTab.value !== '全部') {
     // Filter by group name
     const group = groups.value?.find(g => g.name === activeTab.value)
     if (group) {
@@ -363,20 +363,20 @@ const filteredData = computed(() => {
 // ── Grouped display ──
 const groupedData = computed<Record<string, TableMeta[]>>(() => {
   const data = filteredData.value
-  if (!data.length && activeTab.value !== 'All') return {}
+  if (!data.length && activeTab.value !== '全部') return {}
 
-  if (activeTab.value === 'Recent') {
-    return { 'Recently Accessed': data }
+  if (activeTab.value === '最近') {
+    return { '最近访问': data }
   }
 
-  if (activeTab.value !== 'All') {
+  if (activeTab.value !== '全部') {
     // Single group tab - show as one section
     return { [activeTab.value]: data }
   }
 
   // "All" tab - group by group membership
   if (!groups.value || groups.value.length === 0) {
-    return { 'All Tables': sortedTables(data) }
+    return { '全部表格': sortedTables(data) }
   }
 
   const result: Record<string, TableMeta[]> = {}
@@ -391,7 +391,7 @@ const groupedData = computed<Record<string, TableMeta[]>>(() => {
 
   const ungrouped = sortedTables(data.filter(t => !groupedNames.has(t.name)))
   if (ungrouped.length > 0) {
-    result['Ungrouped'] = ungrouped
+    result['未分组'] = ungrouped
   }
 
   return result
@@ -528,7 +528,7 @@ async function deleteGroup() {
         showEditGroup.value = false
         message.success('Group deleted')
         if (activeTab.value === editGroupName.value) {
-          activeTab.value = 'Recent'
+          activeTab.value = '最近'
         }
       } catch (err) {
         message.error((err as Error).message)

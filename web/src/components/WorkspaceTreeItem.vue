@@ -33,13 +33,13 @@
         <IonIcon v-else :name="defaultIcon" :size="14" />
       </span>
       <span class="ws-title-wrap">
-        <HoverTooltipText :text="node.title || 'Untitled'" class-name="ws-title" />
+        <HoverTooltipText :text="node.title || '未命名'" class-name="ws-title" />
       </span>
       <div class="ws-actions" @click.stop>
         <button
           v-if="node.kind === 'folder'"
           class="ws-action-btn"
-          title="Add inside"
+          title="在此添加"
           @click="emit('add-here', node.id)"
         >+</button>
         <button class="ws-action-btn more" title="More" @click="openMenu">•••</button>
@@ -53,28 +53,28 @@
         :style="menuStyle"
         @mousedown.stop
       >
-          <button v-if="node.kind === 'folder'" class="ws-menu-item" @click="onRename">Rename</button>
+          <button v-if="node.kind === 'folder'" class="ws-menu-item" @click="onRename">重命名</button>
           <div class="ws-menu-item has-sub" @mouseenter="showMove = true" @mouseleave="showMove = false">
-            <span>Move to</span>
+            <span>移动到</span>
             <span class="ws-caret">›</span>
             <div v-if="showMove" class="ws-submenu">
-              <button class="ws-menu-item" @click="onMove(null)">Workspace root</button>
+              <button class="ws-menu-item" @click="onMove(null)">工作区根目录</button>
               <button
                 v-for="opt in moveTargets"
                 :key="opt.id"
                 class="ws-menu-item"
                 @click="onMove(opt.id)"
               >{{ opt.title }}</button>
-              <div v-if="moveTargets.length === 0" class="ws-menu-empty">No other folders</div>
+              <div v-if="moveTargets.length === 0" class="ws-menu-empty">没有其他文件夹</div>
             </div>
           </div>
-          <template v-if="node.kind === 'note'">
+          <template v-if="node.kind === 'note' || node.kind === 'table'">
             <div class="ws-menu-sep" />
-            <button class="ws-menu-item" @click="onArchive">Archive to Knowledge Base</button>
+            <button class="ws-menu-item" @click="onArchive">归档到知识库</button>
           </template>
           <template v-if="node.kind === 'folder'">
             <div class="ws-menu-sep" />
-            <button class="ws-menu-item danger" @click="onDelete">Delete</button>
+            <button class="ws-menu-item danger" @click="onDelete">删除</button>
           </template>
       </div>
     </Teleport>
@@ -133,7 +133,7 @@ const emit = defineEmits<{
   rename: [node: WorkspaceNode]
   move: [payload: { id: string; parent_id: string | null }]
   'delete-folder': [id: string]
-  archive: [noteId: string]
+  archive: [node: WorkspaceNode]
   reorder: [payload: { dragId: string; dropId: string; mode: 'above' | 'child' }]
   'update:drop-state': [state: { id: string | null; position: 'above' | 'child' | null }]
 }>()
@@ -203,7 +203,7 @@ function onDelete() {
 
 function onArchive() {
   closeMenu()
-  if (props.node.ref) emit('archive', props.node.ref)
+  emit('archive', props.node)
 }
 
 function onClick() {

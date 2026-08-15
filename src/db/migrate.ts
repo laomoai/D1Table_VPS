@@ -51,6 +51,11 @@ export function applyMigrations(sqlitePath: string, migrationsDir: string): void
       db.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(file)
       continue
     }
+    if (file === '0025_table_archive.sql' && hasColumn('_meta', 'archived_at')) {
+      console.log(`Skipping ${file} because _meta.archived_at already exists.`)
+      db.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(file)
+      continue
+    }
 
     console.log(`Applying ${file}...`)
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
