@@ -128,7 +128,7 @@ export const api = {
 
   /** 获取表结构 */
   getTableSchema: (tableName: string) =>
-    http.get<{ data: { name: string; columns: ColumnDef[] } }>(`/tables/${tableName}`).then((r) => r.data.data),
+    http.get<{ data: { name: string; columns: ColumnDef[]; is_locked?: boolean; archived_at?: number | null; title?: string; icon?: string | null } }>(`/tables/${tableName}`).then((r) => r.data.data),
 
   /** 查询记录（分页） */
   getRecords: (tableName: string, query: RecordQuery = {}) =>

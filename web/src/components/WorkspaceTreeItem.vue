@@ -36,13 +36,7 @@
         <HoverTooltipText :text="node.title || '未命名'" class-name="ws-title" />
       </span>
       <div class="ws-actions" @click.stop>
-        <button
-          v-if="node.kind === 'folder'"
-          class="ws-action-btn"
-          title="在此添加"
-          @click="emit('add-here', node.id)"
-        >+</button>
-        <button class="ws-action-btn more" title="More" @click="openMenu">•••</button>
+        <button class="ws-action-btn more" title="更多" @click="openMenu">•••</button>
       </div>
     </div>
 
@@ -53,7 +47,18 @@
         :style="menuStyle"
         @mousedown.stop
       >
-          <button v-if="node.kind === 'folder'" class="ws-menu-item" @click="onRename">重命名</button>
+          <template v-if="node.kind === 'folder'">
+            <div class="ws-menu-item has-sub" @mouseenter="showAdd = true" @mouseleave="showAdd = false">
+              <span>添加</span>
+              <span class="ws-caret">›</span>
+              <div v-if="showAdd" class="ws-submenu">
+                <button class="ws-menu-item" @click="onAdd('folder')">文件夹</button>
+                <button class="ws-menu-item" @click="onAdd('table')">表格</button>
+                <button class="ws-menu-item" @click="onAdd('note')">笔记</button>
+              </div>
+            </div>
+            <button class="ws-menu-item" @click="onRename">重命名</button>
+          </template>
           <div class="ws-menu-item has-sub" @mouseenter="showMove = true" @mouseleave="showMove = false">
             <span>移动到</span>
             <span class="ws-caret">›</span>
@@ -93,6 +98,7 @@
         @select="emit('select', $event)"
         @toggle="emit('toggle', $event)"
         @add-here="emit('add-here', $event)"
+        @add-in="emit('add-in', $event)"
         @rename="emit('rename', $event)"
         @move="emit('move', $event)"
         @delete-folder="emit('delete-folder', $event)"
@@ -127,6 +133,7 @@ const emit = defineEmits<{
   select: [node: WorkspaceNode]
   toggle: [id: string]
   'add-here': [folderId: string]
+  'add-in': [payload: { folderId: string; kind: 'folder' | 'table' | 'note' }]
   rename: [node: WorkspaceNode]
   move: [payload: { id: string; parent_id: string | null }]
   'delete-folder': [id: string]
@@ -136,6 +143,7 @@ const emit = defineEmits<{
 }>()
 
 const menuOpen = ref(false)
+const showAdd = ref(false)
 const showMove = ref(false)
 const menuPos = ref({ x: 0, y: 0 })
 
@@ -172,6 +180,7 @@ function openMenu(e: MouseEvent) {
   const y = Math.min(e.clientY, window.innerHeight - 180)
   menuPos.value = { x, y }
   showMove.value = false
+  showAdd.value = false
   menuOpen.value = true
   document.addEventListener('pointerdown', onMenuPointerDown, true)
 }
@@ -182,6 +191,11 @@ function closeMenu() {
 }
 
 onUnmounted(closeMenu)
+
+function onAdd(kind: 'folder' | 'table' | 'note') {
+  closeMenu()
+  emit('add-in', { folderId: props.node.id, kind })
+}
 
 function onRename() {
   closeMenu()

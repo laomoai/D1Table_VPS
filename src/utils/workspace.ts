@@ -523,6 +523,18 @@ function subtreeIds(nodes: WorkspaceNode[], rootId: string): string[] {
   return out
 }
 
+async function cabinetContents(
+  db: SqliteDatabase,
+  folderId: string,
+  teamId: number | undefined,
+): Promise<{ nodes: WorkspaceNode[]; subtree: WorkspaceNode[]; idSet: Set<string> }> {
+  const raw = await loadTeamNodes(db, teamId)
+  const nodes = await expandTablesAcrossFolders(db, teamId, raw)
+  const ids = subtreeIds(nodes, folderId)
+  const idSet = new Set(ids)
+  return { nodes, subtree: nodes.filter((n) => idSet.has(n.id)), idSet }
+}
+
 export async function archiveFolder(
   db: SqliteDatabase,
   folderId: string,
@@ -539,12 +551,9 @@ export async function archiveFolder(
     return { table_count: 0, note_count: 0 }
   }
 
-  const nodes = await loadTeamNodes(db, teamId)
-  const ids = subtreeIds(nodes, folderId)
-  const idSet = new Set(ids)
-  const subtree = nodes.filter((n) => idSet.has(n.id))
+  const { nodes, subtree, idSet } = await cabinetContents(db, folderId, teamId)
   const notes = subtree.filter((n) => n.kind === 'note' && n.ref)
-  const tables = subtree.filter((n) => n.kind === 'table' && n.ref)
+  const tableRefs = [...new Set(subtree.filter((n) => n.kind === 'table' && n.ref).map((n) => n.ref!))]
 
   await db.prepare(`UPDATE _workspace_nodes SET archived_at = unixepoch() WHERE id = ?`).bind(folderId).run()
 
@@ -555,30 +564,17 @@ export async function archiveFolder(
   }
 
   let exclusiveTables = 0
-  for (const table of tables) {
-    const liveElsewhere = nodes.some((n) => {
-      if (n.kind !== 'table' || n.ref !== table.ref || idSet.has(n.id)) return false
-      let p = n.parent_id
-      const seen = new Set<string>()
-      while (p) {
-        if (idSet.has(p)) return false
-        const folderNode = nodes.find((x) => x.id === p)
-        if (folderNode?.archived_at) return false
-        if (seen.has(p)) break
-        seen.add(p)
-        p = folderNode?.parent_id ?? null
-      }
-      return true
-    })
+  for (const ref of tableRefs) {
+    const liveElsewhere = nodes.some((n) => n.kind === 'table' && n.ref === ref && !idSet.has(n.id))
     if (!liveElsewhere) {
       await db.prepare(
         `UPDATE _meta SET archived_at = unixepoch() WHERE table_name = ? AND archived_at IS NULL`,
-      ).bind(table.ref).run()
+      ).bind(ref).run()
       exclusiveTables += 1
     }
   }
 
-  return { table_count: exclusiveTables, note_count: notes.length }
+  return { table_count: tableRefs.length, note_count: notes.length }
 }
 
 export async function unarchiveFolder(
@@ -594,18 +590,15 @@ export async function unarchiveFolder(
     throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
   }
 
-  const nodes = await loadTeamNodes(db, teamId)
-  const ids = subtreeIds(nodes, folderId)
-  const idSet = new Set(ids)
-  const subtree = nodes.filter((n) => idSet.has(n.id))
+  const { subtree } = await cabinetContents(db, folderId, teamId)
 
   await db.prepare(`UPDATE _workspace_nodes SET archived_at = NULL WHERE id = ?`).bind(folderId).run()
 
   for (const note of subtree.filter((n) => n.kind === 'note' && n.ref)) {
     await db.prepare(`UPDATE _notes SET archived_at = NULL WHERE id = ? AND deleted_at IS NULL`).bind(note.ref).run()
   }
-  for (const table of subtree.filter((n) => n.kind === 'table' && n.ref)) {
-    await db.prepare(`UPDATE _meta SET archived_at = NULL WHERE table_name = ?`).bind(table.ref).run()
+  for (const ref of [...new Set(subtree.filter((n) => n.kind === 'table' && n.ref).map((n) => n.ref!))]) {
+    await db.prepare(`UPDATE _meta SET archived_at = NULL WHERE table_name = ?`).bind(ref).run()
   }
 }
 
@@ -613,7 +606,8 @@ export async function listArchivedFolders(
   db: SqliteDatabase,
   teamId: number | undefined,
 ): Promise<Array<{ id: string; title: string; archived_at: number; table_count: number; note_count: number }>> {
-  const nodes = await loadTeamNodes(db, teamId)
+  const raw = await loadTeamNodes(db, teamId)
+  const nodes = await expandTablesAcrossFolders(db, teamId, raw)
   const cabinets = nodes.filter((n) => n.kind === 'folder' && n.archived_at)
   return cabinets.map((folder) => {
     const ids = new Set(subtreeIds(nodes, folder.id))
@@ -640,9 +634,22 @@ export async function getArchivedFolderTree(
   if (teamId !== undefined && folder.team_id !== teamId) {
     throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
   }
-  const nodes = await loadTeamNodes(db, teamId)
-  const ids = new Set(subtreeIds(nodes, folderId))
-  return { folder, nodes: nodes.filter((n) => ids.has(n.id)) }
+  const { subtree, nodes, idSet } = await cabinetContents(db, folderId, teamId)
+  // Heal cabinets archived before group_tables expansion
+  for (const note of subtree.filter((n) => n.kind === 'note' && n.ref)) {
+    await db.prepare(
+      `UPDATE _notes SET archived_at = unixepoch() WHERE id = ? AND archived_at IS NULL AND deleted_at IS NULL`,
+    ).bind(note.ref).run()
+  }
+  for (const ref of [...new Set(subtree.filter((n) => n.kind === 'table' && n.ref).map((n) => n.ref!))]) {
+    const liveElsewhere = nodes.some((n) => n.kind === 'table' && n.ref === ref && !idSet.has(n.id))
+    if (!liveElsewhere) {
+      await db.prepare(
+        `UPDATE _meta SET archived_at = unixepoch() WHERE table_name = ? AND archived_at IS NULL`,
+      ).bind(ref).run()
+    }
+  }
+  return { folder, nodes: subtree }
 }
 
 /** Tables and notes inside selected folders, including nested folders. */

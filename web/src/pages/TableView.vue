@@ -121,20 +121,26 @@ const { data: tablesData } = useQuery({
   queryFn: api.getTables,
 })
 
+const { data: tableSchema } = useQuery({
+  queryKey: computed(() => ['table-schema', tableName.value]),
+  queryFn: () => api.getTableSchema(tableName.value),
+})
+
 const totalCount = computed(() =>
   tablesData.value?.find(t => t.name === tableName.value)?.row_count ?? null
 )
 
 const tableTitle = computed(() =>
-  tablesData.value?.find(t => t.name === tableName.value)?.title ?? null
+  tableSchema.value?.title ?? tablesData.value?.find(t => t.name === tableName.value)?.title ?? null
 )
 
 const tableIcon = computed(() =>
-  tablesData.value?.find(t => t.name === tableName.value)?.icon ?? null
+  tableSchema.value?.icon ?? tablesData.value?.find(t => t.name === tableName.value)?.icon ?? null
 )
 
 const isTableLocked = computed(() =>
-  tablesData.value?.find(t => t.name === tableName.value)?.is_locked ?? false
+  !!(tableSchema.value?.is_locked || tableSchema.value?.archived_at
+    || tablesData.value?.find(t => t.name === tableName.value)?.is_locked)
 )
 
 watch([tableTitle, tableIcon, tableName], ([title, icon, name]) => {

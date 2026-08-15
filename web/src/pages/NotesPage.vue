@@ -6,7 +6,7 @@
       <template v-else-if="activeNoteId && noteReady && activeNote">
         <div class="note-header">
           <div class="note-title-row">
-            <button class="note-icon-btn" @click="showIconPicker = true" :disabled="!!activeNote.is_locked" :title="activeNote.icon ? '更换图标' : '添加图标'">
+            <button class="note-icon-btn" @click="showIconPicker = true" :disabled="noteFrozen" :title="activeNote.icon ? '更换图标' : '添加图标'">
               <IonIcon v-if="activeNote.icon && activeNote.icon.startsWith('ion:')" :name="activeNote.icon.slice(4)" :size="22" />
               <span v-else-if="activeNote.icon" class="note-emoji-icon note-emoji-icon--lg">{{ activeNote.icon }}</span>
               <IonIcon v-else :name="activeNoteHasChildren ? 'FolderOutline' : 'DocumentOutline'" :size="22" />
@@ -15,13 +15,14 @@
               v-model="noteTitle"
               class="note-title-input"
               placeholder="未命名"
-              :readonly="!!activeNote.is_locked"
+              :readonly="noteFrozen"
               @blur="saveTitle"
               @keyup.enter="($event.target as HTMLInputElement).blur()"
             />
           </div>
           <div class="note-meta">
-            <button class="note-lock-btn" @click="toggleNoteLock" :title="activeNote.is_locked ? '解锁笔记' : '锁定笔记'">
+            <span v-if="activeNote.archived_at" class="note-saved">归档只读</span>
+            <button v-else class="note-lock-btn" @click="toggleNoteLock" :title="activeNote.is_locked ? '解锁笔记' : '锁定笔记'">
               <IonIcon :name="activeNote.is_locked ? 'LockClosedOutline' : 'LockOpenOutline'" :size="14" />
             </button>
             <span v-if="activeNote.updated_at" class="note-time">
@@ -31,7 +32,7 @@
             <span v-else-if="saving" class="note-saving">保存中...</span>
             <span v-else-if="lastSaved" class="note-saved">已保存</span>
             <div class="note-meta-spacer" />
-            <button class="note-action-btn danger icon-only" @click="confirmDeleteCurrentNote" title="删除笔记" aria-label="删除笔记">
+            <button v-if="!activeNote.archived_at" class="note-action-btn danger icon-only" @click="confirmDeleteCurrentNote" title="删除笔记" aria-label="删除笔记">
               <IonIcon name="TrashOutline" :size="14" />
             </button>
           </div>
@@ -39,7 +40,7 @@
         <NoteEditor
           ref="noteEditorRef"
           v-model="noteContent"
-          :editable="!activeNote.is_locked"
+          :editable="!noteFrozen"
           @blur="saveContent"
           @export="exportCurrentNote"
           @insert-table-ref="showTablePicker = true"
@@ -224,6 +225,8 @@ const { data: activeNote } = useQuery({
   refetchInterval: 5000,
 })
 
+const noteFrozen = computed(() => !!(activeNote.value?.is_locked || activeNote.value?.archived_at))
+
 watch(activeNote, (note) => {
   if (!note || note.id !== activeNoteId.value) return
   if (!noteReady.value) {
@@ -303,7 +306,7 @@ if (route.params.noteId) {
 
 // ── Save logic ───────────────────────────────────────────────
 async function flushSave(): Promise<void> {
-  if (!activeNoteId.value || !noteReady.value) return
+  if (!activeNoteId.value || !noteReady.value || noteFrozen.value) return
   const id = activeNoteId.value
 
   if (noteTitle.value.trim() && noteTitle.value.trim() !== savedTitle) {
@@ -330,6 +333,7 @@ async function flushSave(): Promise<void> {
 }
 
 async function saveTitle() {
+  if (noteFrozen.value) return
   if (!activeNoteId.value || !noteReady.value || !noteTitle.value.trim()) return
   if (noteTitle.value.trim() === savedTitle) return
   saving.value = true
@@ -346,6 +350,7 @@ async function saveTitle() {
 }
 
 async function saveContent() {
+  if (noteFrozen.value) return
   if (!activeNoteId.value || !noteReady.value) return
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
   if (noteContent.value === savedContent) return

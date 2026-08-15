@@ -179,14 +179,16 @@ tables.get('/:tableName', async (c) => {
 
   // 获取表显示名和图标
   const tableMeta = await c.env.DB
-    .prepare(`SELECT title, icon FROM _meta WHERE table_name = ?`)
-    .bind(tableName).first<{ title: string | null; icon: string | null }>()
+    .prepare(`SELECT title, icon, archived_at, is_locked FROM _meta WHERE table_name = ?`)
+    .bind(tableName).first<{ title: string | null; icon: string | null; archived_at: number | null; is_locked: number }>()
 
   return c.json({
     data: {
       name: tableName,
       title: tableMeta?.title ?? tableName,
       icon: tableMeta?.icon ?? null,
+      archived_at: tableMeta?.archived_at ?? null,
+      is_locked: tableMeta?.is_locked === 1 || !!tableMeta?.archived_at,
       columns: columns.map((col) => ({
         name: col.name,
         title: metaByCol[col.name]?.title ?? col.name,

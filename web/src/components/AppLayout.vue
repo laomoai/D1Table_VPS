@@ -42,6 +42,7 @@
             @select="selectWorkspaceNode"
             @toggle="toggleWorkspaceFolder"
             @add-here="onAddHere"
+            @add-in="onAddIn"
             @rename="openRenameModal"
             @move="onManageMove"
             @delete-folder="onDeleteFolder"
@@ -239,6 +240,19 @@ function toggleAddMenu() {
 function onAddHere(folderId: string) {
   createTargetFolder.value = folderId
   showAddMenu.value = true
+}
+
+function onAddIn(payload: { folderId: string; kind: 'folder' | 'table' | 'note' }) {
+  createTargetFolder.value = payload.folderId
+  if (payload.kind === 'table') {
+    openCreateTable()
+    return
+  }
+  if (payload.kind === 'note') {
+    openNoteModal()
+    return
+  }
+  openFolderModal()
 }
 
 function openFolderModal() {

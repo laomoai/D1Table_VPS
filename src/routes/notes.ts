@@ -308,10 +308,10 @@ notes.get('/:id', async (c) => {
   }
 
   const row = await c.env.DB.prepare(
-    `SELECT id, title, content, icon, parent_id, sort_order, is_locked, created_by, owner_id, created_at, updated_at, cover, description
+    `SELECT id, title, content, icon, parent_id, sort_order, is_locked, created_by, owner_id, created_at, updated_at, cover, description, archived_at
      FROM _notes WHERE id = ? AND ${clause} AND deleted_at IS NULL`
   ).bind(id, ...params)
-    .first<{ id: string; title: string; content: string; icon: string | null; parent_id: string | null; sort_order: number; is_locked: number; created_by: number | null; owner_id: number | null; created_at: number; updated_at: number }>()
+    .first<{ id: string; title: string; content: string; icon: string | null; parent_id: string | null; sort_order: number; is_locked: number; created_by: number | null; owner_id: number | null; created_at: number; updated_at: number; archived_at: number | null }>()
 
   if (!row) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Note not found' } }, 404)
