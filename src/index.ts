@@ -124,8 +124,8 @@ function openApiSpec(serverUrl: string) {
 - Images: POST /api/upload/image, then store the returned paths on the record
 
 **Agent packages (no extra coding):**
-- Skill: \`/agent/d1table/SKILL.md\` + \`/agent/d1table/scripts/d1table.py\`
-- MCP stdio: \`/agent/d1table/mcp/server.mjs\` (env \`D1TABLE_URL\`, \`D1TABLE_KEY\`)`,
+- Skill: \`/agent/mowen/SKILL.md\` + \`/agent/mowen/scripts/mowen.py\`
+- MCP stdio: \`/agent/mowen/mcp/server.mjs\` (env \`MOWEN_URL\`, \`MOWEN_KEY\`)`,
     },
     servers: [{ url: serverUrl }],
     security: [{ ApiKeyAuth: [] }],

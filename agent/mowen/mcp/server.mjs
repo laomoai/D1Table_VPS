@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * D1Table MCP (stdio). Env: D1TABLE_URL, D1TABLE_KEY
- * Claude Desktop / Cursor / 其它 MCP 客户端用 stdio 启动本文件即可。
+ * 墨问 MCP (stdio). Env: MOWEN_URL + MOWEN_KEY（兼容 D1TABLE_*）
+ * Cursor / Claude Desktop 用 stdio 启动本文件。这是本地进程，不是在浏览器里打开。
  */
 import { createInterface } from "node:readline";
 
-const URL_BASE = (process.env.D1TABLE_URL || "https://mowen.lemoai.cn").replace(/\/$/, "");
-const API_KEY = (process.env.D1TABLE_KEY || "").trim();
+const URL_BASE = (process.env.MOWEN_URL || process.env.D1TABLE_URL || "https://mowen.lemoai.cn").replace(/\/$/, "");
+const API_KEY = (process.env.MOWEN_KEY || process.env.D1TABLE_KEY || "").trim();
 
 const TOOLS = [
   { name: "list_tables", description: "列出当前 Key 可见的表格", inputSchema: { type: "object", properties: {} } },
@@ -94,7 +94,7 @@ const TOOLS = [
 ];
 
 async function api(method, path, body) {
-  if (!API_KEY) throw new Error("缺少 D1TABLE_KEY");
+  if (!API_KEY) throw new Error("缺少 MOWEN_KEY");
   const res = await fetch(URL_BASE + path, {
     method,
     headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
@@ -169,7 +169,7 @@ async function handle(msg) {
     return reply(id, {
       protocolVersion: "2024-11-05",
       capabilities: { tools: {} },
-      serverInfo: { name: "d1table", version: "1.0.0" },
+      serverInfo: { name: "mowen", version: "1.0.0" },
     });
   }
   if (method === "notifications/initialized" || method === "initialized") return;

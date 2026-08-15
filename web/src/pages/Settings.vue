@@ -75,24 +75,27 @@
           <div class="section" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f0f0f0;">
             <div class="section-label">给 Agent 用（Skill / MCP）</div>
             <div class="hint" style="margin-top: 8px;">
-              不用自己封装接口。把 Skill 拷进 Agent，或用 MCP 连 Cursor / Claude Desktop。密钥用上面创建的 API Key，环境变量 <code>D1TABLE_KEY</code>。
+              密钥用上面创建的 API Key。Skill 给 Grok / Claude / Codex；MCP 给 Cursor / Claude Desktop（本机跑 Node 进程，不是在浏览器打开脚本）。
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-              <n-button tag="a" href="/agent/d1table/SKILL.md" target="_blank" size="small" type="primary" ghost>
-                Skill 说明
-              </n-button>
-              <n-button tag="a" href="/agent/d1table/README.md" target="_blank" size="small" quaternary>
-                安装说明
-              </n-button>
-              <n-button tag="a" href="/agent/d1table/mcp/server.mjs" target="_blank" size="small" quaternary>
-                MCP 服务
-              </n-button>
+
+            <div class="agent-block">
+              <div class="agent-block-head">
+                <span>安装 Skill</span>
+                <n-button size="tiny" quaternary @click="copyText(skillInstallSnippet, 'Skill 安装命令已复制')">复制</n-button>
+              </div>
+              <pre class="agent-snippet">{{ skillInstallSnippet }}</pre>
             </div>
-            <pre class="agent-snippet">mkdir -p ~/.grok/skills/d1table/scripts
-curl -fsSL https://mowen.lemoai.cn/agent/d1table/SKILL.md -o ~/.grok/skills/d1table/SKILL.md
-curl -fsSL https://mowen.lemoai.cn/agent/d1table/scripts/d1table.py -o ~/.grok/skills/d1table/scripts/d1table.py
-export D1TABLE_URL=https://mowen.lemoai.cn
-export D1TABLE_KEY='你的密钥'</pre>
+
+            <div class="agent-block">
+              <div class="agent-block-head">
+                <span>MCP 配置（先下载 server.mjs 到本机）</span>
+                <div style="display:flex;gap:6px;">
+                  <n-button tag="a" href="/agent/mowen/mcp/server.mjs" download="mowen-mcp.mjs" size="tiny" quaternary>下载 server.mjs</n-button>
+                  <n-button size="tiny" quaternary @click="copyText(mcpConfigSnippet, 'MCP 配置已复制')">复制</n-button>
+                </div>
+              </div>
+              <pre class="agent-snippet">{{ mcpConfigSnippet }}</pre>
+            </div>
           </div>
         </div>
       </n-tab-pane>
@@ -556,6 +559,30 @@ function copyKey() {
   message.success('已复制到剪贴板')
 }
 
+const skillInstallSnippet = `mkdir -p ~/.grok/skills/mowen/scripts
+curl -fsSL https://mowen.lemoai.cn/agent/mowen/SKILL.md -o ~/.grok/skills/mowen/SKILL.md
+curl -fsSL https://mowen.lemoai.cn/agent/mowen/scripts/mowen.py -o ~/.grok/skills/mowen/scripts/mowen.py
+export MOWEN_URL=https://mowen.lemoai.cn
+export MOWEN_KEY='你的密钥'`
+
+const mcpConfigSnippet = `{
+  "mcpServers": {
+    "mowen": {
+      "command": "node",
+      "args": ["/本机路径/mowen-mcp.mjs"],
+      "env": {
+        "MOWEN_URL": "https://mowen.lemoai.cn",
+        "MOWEN_KEY": "你的密钥"
+      }
+    }
+  }
+}`
+
+function copyText(text: string, ok: string) {
+  navigator.clipboard.writeText(text)
+  message.success(ok)
+}
+
 function downloadJson(filename: string, payload: unknown) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -973,8 +1000,19 @@ const isOwner = computed(() => {
   color: #999;
   margin-top: 6px;
 }
+.agent-block { margin-top: 16px; }
+.agent-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #37352f;
+  margin-bottom: 6px;
+}
 .agent-snippet {
-  margin: 12px 0 0;
+  margin: 0;
   padding: 12px 14px;
   background: #f7f7f5;
   border-radius: 6px;

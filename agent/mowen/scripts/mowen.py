@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""D1Table CLI — stdlib only. Auth: D1TABLE_URL + D1TABLE_KEY."""
+"""墨问 CLI — stdlib only. Auth: MOWEN_URL + MOWEN_KEY（兼容 D1TABLE_*）。"""
 from __future__ import annotations
 
 import argparse
@@ -19,10 +19,10 @@ def die(msg: str, code: int = 1) -> None:
 
 
 def request(method: str, path: str, body: dict | None = None, query: dict | None = None):
-    base = os.environ.get("D1TABLE_URL", DEFAULT_URL).rstrip("/")
-    key = os.environ.get("D1TABLE_KEY", "").strip()
+    base = (os.environ.get("MOWEN_URL") or os.environ.get("D1TABLE_URL") or DEFAULT_URL).rstrip("/")
+    key = (os.environ.get("MOWEN_KEY") or os.environ.get("D1TABLE_KEY") or "").strip()
     if not key:
-        die("缺少 D1TABLE_KEY。到设置页创建 API Key 后导出该环境变量。")
+        die("缺少 MOWEN_KEY。到设置页创建 API Key 后导出该环境变量。")
     url = base + path
     if query:
         q = {k: v for k, v in query.items() if v is not None and v != ""}
@@ -65,7 +65,7 @@ def parse_data(raw: str) -> dict:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(prog="d1table", description="D1Table agent CLI")
+    p = argparse.ArgumentParser(prog="mowen", description="墨问 agent CLI")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("tables", help="列出表格")
