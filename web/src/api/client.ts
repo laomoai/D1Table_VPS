@@ -391,12 +391,22 @@ export type TableDraft = {
 
 export type AssistantStep = { name: string; label: string }
 
+export type AssistantTopic = { id: string; title: string; created_at: number }
+
 export const assistantApi = {
+  thread: () =>
+    http.get<{ data: {
+      thread_id: string
+      title: string
+      summary: string
+      messages: Array<{ role: 'user' | 'assistant'; content: string; draft?: TableDraft; steps?: AssistantStep[]; topic?: string; done?: boolean }>
+      topics: AssistantTopic[]
+    } }>('/assistant/thread').then((r) => r.data.data),
   chat: (
-    messages: Array<{ role: string; content: string }>,
+    content: string,
     context?: { table?: string | null; table_title?: string | null; note?: string | null; note_title?: string | null },
   ) =>
-    http.post<{ data: { reply: string; draft: TableDraft | null; steps?: AssistantStep[]; mutated?: boolean } }>('/assistant/chat', { messages, context }, { timeout: 90000 })
+    http.post<{ data: { reply: string; draft: TableDraft | null; steps?: AssistantStep[]; mutated?: boolean; topic?: string } }>('/assistant/chat', { content, context }, { timeout: 90000 })
       .then((r) => r.data.data),
   confirm: (draft: TableDraft) =>
     http.post<{ data: { name: string; title: string; folder_id: string | null; action?: string; added?: string[] } }>('/assistant/confirm', { draft })

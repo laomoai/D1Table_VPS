@@ -3,6 +3,15 @@ import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware } from '../middleware/auth'
 import { createFolder, listWorkspaceNodes, expandTablesAcrossFolders, ensureTableNode, ensureNoteNode, updateNodeTitleByRef, moveNode } from '../utils/workspace'
 import { getUserTables, isValidIdentifier } from '../utils/schema-cache'
+import {
+  appendMessage,
+  getOrCreateThread,
+  lastUserBefore,
+  listMessages,
+  recentForModel,
+  updateThreadMeta,
+  type StoredMsg,
+} from '../utils/assistant-memory'
 
 const assistant = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -521,17 +530,97 @@ async function llmChat(apiKey: string, messages: unknown[]) {
   }
 }
 
+async function llmText(apiKey: string, messages: unknown[], temperature = 0.1): Promise<string> {
+  const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'deepseek-v4-flash',
+      messages,
+      temperature,
+    }),
+  })
+  const text = await resp.text()
+  if (!resp.ok) throw new Error(`模型调用失败：${resp.status} ${text.slice(0, 240)}`)
+  const data = JSON.parse(text) as { choices?: Array<{ message?: { content?: string | null } }> }
+  return (data.choices?.[0]?.message?.content || '').trim()
+}
+
+async function detectTopic(apiKey: string, prevUser: string, lastAssistant: string, nextUser: string): Promise<'continue' | 'new'> {
+  if (!prevUser) return 'new'
+  try {
+    const raw = await llmText(apiKey, [
+      {
+        role: 'system',
+        content: '判断用户最新一句话是接着上一轮做事，还是换了一个新问题。只输出 JSON：{"kind":"continue"} 或 {"kind":"new"}。指代「这个」「刚才」「再」「也」通常是 continue；主题、对象完全换了是 new。',
+      },
+      {
+        role: 'user',
+        content: `上一句用户：${prevUser.slice(0, 400)}\n上一句助手：${lastAssistant.slice(0, 400)}\n最新用户：${nextUser.slice(0, 800)}`,
+      },
+    ])
+    const m = raw.match(/\{[\s\S]*\}/)
+    const kind = m ? (JSON.parse(m[0]) as { kind?: string }).kind : ''
+    return kind === 'new' ? 'new' : 'continue'
+  } catch {
+    return 'continue'
+  }
+}
+
+async function compressSummary(apiKey: string, oldSummary: string, msgs: StoredMsg[]): Promise<string> {
+  const blob = msgs.map((m) => `${m.role === 'user' ? '用户' : '助手'}：${m.content.slice(0, 600)}`).join('\n')
+  try {
+    const text = await llmText(apiKey, [
+      {
+        role: 'system',
+        content: '把对话压成不超过 350 字的中文备忘。保留：用户目标、提到的表格/笔记、已完成和未完成的操作。不要客套。',
+      },
+      {
+        role: 'user',
+        content: `已有备忘：\n${oldSummary || '（无）'}\n\n新增对话：\n${blob.slice(0, 6000)}`,
+      },
+    ])
+    return text.slice(0, 1200)
+  } catch {
+    return (oldSummary + '\n' + blob).slice(-800)
+  }
+}
+
+assistant.get('/thread', async (c) => {
+  const userId = c.get('userId')
+  if (!userId) return c.json({ error: { code: 'UNAUTHORIZED', message: '请先登录' } }, 401)
+  const thread = await getOrCreateThread(c.env.DB, userId, c.get('teamId'))
+  const stored = await listMessages(c.env.DB, thread.id)
+  const messages = stored.map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    draft: m.draft_json ? JSON.parse(m.draft_json) : undefined,
+    steps: m.steps_json ? JSON.parse(m.steps_json) : undefined,
+    topic: m.topic,
+    done: !!m.draft_json,
+  }))
+  const topics = stored
+    .filter((m) => m.role === 'user' && m.topic === 'new')
+    .map((m) => ({ id: m.id, title: m.content.trim().slice(0, 36), created_at: m.created_at }))
+  return c.json({ data: { thread_id: thread.id, title: thread.title, summary: thread.summary, messages, topics } })
+})
+
 assistant.post('/chat', async (c) => {
   const apiKey = c.env.DEEPSEEK_API_KEY
   if (!apiKey) {
     return c.json({ error: { code: 'NOT_CONFIGURED', message: '未配置 DEEPSEEK_API_KEY，无法使用助手' } }, 503)
   }
   const body = await c.req.json<{
+    content?: string
     messages?: Array<{ role: string; content: string }>
     context?: { table?: string | null; table_title?: string | null; note?: string | null; note_title?: string | null }
-  }>().catch(() => ({ messages: [] as Array<{ role: string; content: string }>, context: undefined }))
-  const incoming = (body.messages ?? []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-  if (incoming.length === 0) {
+  }>().catch(() => ({ content: '', messages: [] as Array<{ role: string; content: string }>, context: undefined }))
+  const userText = String(body.content || body.messages?.filter((m) => m.role === 'user').slice(-1)[0]?.content || '').trim()
+  if (!userText) {
     return c.json({ error: { code: 'INVALID_BODY', message: '请输入内容' } }, 400)
   }
 
@@ -543,10 +632,48 @@ assistant.post('/chat', async (c) => {
     contextLine = `用户当前打开的笔记：id=${ctx.note}${ctx.note_title ? `，标题「${ctx.note_title}」` : ''}。`
   }
 
+  const userId = c.get('userId')
+  let topic: 'continue' | 'new' = 'new'
+  let memory = ''
+  let threadId: string | null = null
+  let historyForModel: Array<{ role: string; content: string }> = []
+  if (userId) {
+    const thread = await getOrCreateThread(c.env.DB, userId, c.get('teamId'))
+    threadId = thread.id
+    const history = await listMessages(c.env.DB, thread.id)
+    const prevUser = lastUserBefore(history, userText)
+    const lastAsst = [...history].reverse().find((m) => m.role === 'assistant')?.content || ''
+    topic = await detectTopic(apiKey, prevUser, lastAsst, userText)
+    memory = thread.summary || ''
+    if (topic === 'new' && history.length > 0) {
+      memory = await compressSummary(apiKey, memory, recentForModel(history, 16))
+      await updateThreadMeta(c.env.DB, thread.id, {
+        summary: memory,
+        title: userText.slice(0, 28),
+      })
+    } else if (history.length >= 20 && history.length % 8 === 0) {
+      memory = await compressSummary(apiKey, memory, recentForModel(history, 16))
+      await updateThreadMeta(c.env.DB, thread.id, { summary: memory })
+    }
+    const window = topic === 'new' ? [] : recentForModel(history, 10)
+    historyForModel = window.map((m) => ({ role: m.role, content: m.content }))
+  } else {
+    historyForModel = (body.messages ?? []).filter((m) => m.role === 'user' || m.role === 'assistant').slice(-10)
+  }
+
+  const memoryLine = memory
+    ? `长期备忘（压缩过的历史，可能跨多个问题）：\n${memory}`
+    : '没有更早的备忘。'
+  const topicLine = topic === 'new'
+    ? '用户这句是新问题。不要被备忘里的旧任务绑住，只在相关时参考。'
+    : '用户这句是上一轮的继续，优先接着做。'
+
   const messages: Array<Record<string, unknown>> = [
     { role: 'system', content: SYSTEM },
     { role: 'system', content: contextLine },
-    ...incoming.slice(-16),
+    { role: 'system', content: `${topicLine}\n${memoryLine}` },
+    ...historyForModel,
+    { role: 'user', content: userText },
   ]
 
   let draft: TableDraft | null = null
@@ -715,7 +842,12 @@ assistant.post('/chat', async (c) => {
           : '我这边没有得到明确回复，请再说一次。'
   }
 
-  return c.json({ data: { reply, draft, steps, mutated } })
+  if (threadId) {
+    await appendMessage(c.env.DB, threadId, { role: 'user', content: userText, topic })
+    await appendMessage(c.env.DB, threadId, { role: 'assistant', content: reply, draft, steps })
+  }
+
+  return c.json({ data: { reply, draft, steps, mutated, topic } })
 })
 
 assistant.post('/confirm', requireWriteMiddleware, async (c) => {

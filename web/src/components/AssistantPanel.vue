@@ -1,33 +1,37 @@
 <template>
-  <aside class="asst">
+  <aside class="asst" :style="{ width: width + 'px' }">
+    <div
+      class="asst-resize"
+      :class="{ active: resizing }"
+      title="拖动调整宽度"
+      @mousedown.prevent="startResize"
+    />
     <div class="asst-body">
       <div class="asst-head">
         <span>AI 助手</span>
         <div class="asst-head-actions">
-          <button class="asst-icon-btn" type="button" title="新对话" @click="newThread">新对话</button>
-          <button class="asst-icon-btn" type="button" title="历史记录" :class="{ on: showHistory }" @click="showHistory = !showHistory">记录</button>
+          <button class="asst-icon-btn" type="button" title="历史话题" :class="{ on: showHistory }" @click="showHistory = !showHistory">记录</button>
           <button class="asst-close" type="button" title="收起" @click="emit('update:open', false)">×</button>
         </div>
       </div>
       <div v-if="showHistory" class="asst-history">
-        <div v-if="threads.length === 0" class="asst-empty">还没有历史对话</div>
+        <div v-if="topics.length === 0" class="asst-empty">还没有分开的话题，接着问即可</div>
         <button
-          v-for="t in threads"
+          v-for="t in topics"
           :key="t.id"
           class="asst-hist-item"
-          :class="{ current: t.id === threadId }"
           type="button"
-          @click="openThread(t.id)"
+          @click="jumpTopic(t.id)"
         >
           <span class="asst-hist-title">{{ t.title }}</span>
-          <span class="asst-hist-time">{{ formatTime(t.updatedAt) }}</span>
+          <span class="asst-hist-time">{{ formatTime(t.created_at * 1000) }}</span>
         </button>
       </div>
       <div ref="listEl" class="asst-list">
         <div v-if="messages.length === 0 && !busy" class="asst-empty">
           可以说：帮我把这段存成新笔记，或给当前表格加字段。
         </div>
-        <div v-for="(m, i) in messages" :key="i" class="asst-msg" :class="m.role">
+        <div v-for="(m, i) in messages" :key="m.id || i" class="asst-msg" :class="m.role" :data-mid="m.id">
           <div v-if="m.role === 'user'" class="asst-bubble">{{ m.content }}</div>
           <template v-else>
             <div v-if="m.steps?.length" class="asst-steps">
@@ -67,12 +71,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useMessage } from 'naive-ui'
 import DOMPurify from 'dompurify'
-import { assistantApi, type AssistantStep, type TableDraft, type WorkspaceNode } from '@/api/client'
+import { assistantApi, type AssistantStep, type AssistantTopic, type TableDraft, type WorkspaceNode } from '@/api/client'
 import { renderMarkdown } from '@/utils/markdown'
 import { refreshWorkspace } from '@/composables/workspaceNav'
 
@@ -83,31 +87,44 @@ const route = useRoute()
 const queryClient = useQueryClient()
 const message = useMessage()
 
-type ChatMsg = { role: 'user' | 'assistant'; content: string; draft?: TableDraft; done?: boolean; steps?: AssistantStep[] }
-type Thread = { id: string; title: string; updatedAt: number; messages: ChatMsg[] }
-
-const STORE_KEY = 'mowen_assistant_threads'
-const ACTIVE_KEY = 'mowen_assistant_active'
-
-function loadThreads(): Thread[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORE_KEY) || '[]') as Thread[]
-    return Array.isArray(raw) ? raw.slice(0, 30) : []
-  } catch {
-    return []
-  }
+type ChatMsg = {
+  role: 'user' | 'assistant'
+  content: string
+  draft?: TableDraft
+  done?: boolean
+  steps?: AssistantStep[]
+  topic?: string
+  id?: string
 }
 
-const threads = ref<Thread[]>(loadThreads())
-const threadId = ref(localStorage.getItem(ACTIVE_KEY) || '')
-const current = computed(() => threads.value.find((t) => t.id === threadId.value))
-const messages = ref<ChatMsg[]>(current.value?.messages ?? [])
+const WIDTH_KEY = 'mowen_assistant_width'
+const width = ref(parseInt(localStorage.getItem(WIDTH_KEY) || '360', 10) || 360)
+const resizing = ref(false)
+const messages = ref<ChatMsg[]>([])
+const topics = ref<AssistantTopic[]>([])
 const input = ref('')
 const busy = ref(false)
 const showHistory = ref(false)
 const listEl = ref<HTMLElement | null>(null)
 const thinkingLabel = ref('思考中…')
 let thinkTimer: number | null = null
+
+function startResize(e: MouseEvent) {
+  resizing.value = true
+  const startX = e.clientX
+  const startW = width.value
+  function onMove(ev: MouseEvent) {
+    width.value = Math.max(280, Math.min(720, startW - (ev.clientX - startX)))
+  }
+  function onUp() {
+    resizing.value = false
+    localStorage.setItem(WIDTH_KEY, String(width.value))
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
 
 const THINK_CYCLE = ['思考中…', '正在查看工作区…', '正在整理回复…']
 
@@ -127,22 +144,6 @@ function stopThinking() {
   }
 }
 
-function persist() {
-  const list = threads.value
-    .map((t) => (t.id === threadId.value ? { ...t, messages: messages.value, updatedAt: Date.now(), title: threadTitle(messages.value) } : t))
-    .filter((t) => t.messages.length > 0)
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 30)
-  threads.value = list
-  localStorage.setItem(STORE_KEY, JSON.stringify(list))
-  if (threadId.value) localStorage.setItem(ACTIVE_KEY, threadId.value)
-}
-
-function threadTitle(msgs: ChatMsg[]) {
-  const first = msgs.find((m) => m.role === 'user')?.content?.trim() || '新对话'
-  return first.slice(0, 28)
-}
-
 function formatTime(ts: number) {
   const d = new Date(ts)
   const mm = `${d.getMonth() + 1}`.padStart(2, '0')
@@ -152,24 +153,24 @@ function formatTime(ts: number) {
   return `${mm}-${dd} ${hh}:${mi}`
 }
 
-function newThread() {
-  threadId.value = `t_${Date.now().toString(36)}`
-  messages.value = []
+function jumpTopic(id: string) {
   showHistory.value = false
-  localStorage.setItem(ACTIVE_KEY, threadId.value)
+  const el = listEl.value?.querySelector(`[data-mid="${id}"]`)
+  el?.scrollIntoView({ block: 'start' })
 }
 
-function openThread(id: string) {
-  const t = threads.value.find((x) => x.id === id)
-  if (!t) return
-  threadId.value = id
-  messages.value = t.messages
-  showHistory.value = false
-  localStorage.setItem(ACTIVE_KEY, id)
-  void scrollBottom()
+async function loadThread() {
+  try {
+    const data = await assistantApi.thread()
+    messages.value = data.messages.map((m) => ({ ...m, done: !!m.draft }))
+    topics.value = data.topics
+    await scrollBottom()
+  } catch {
+    /* 未登录时保持空 */
+  }
 }
 
-watch(messages, persist, { deep: true })
+onMounted(() => { void loadThread() })
 onUnmounted(stopThinking)
 
 function typeLabel(t: string) {
@@ -227,21 +228,22 @@ async function scrollBottom() {
 async function send() {
   const text = input.value.trim()
   if (!text || busy.value) return
-  if (!threadId.value) threadId.value = `t_${Date.now().toString(36)}`
   input.value = ''
-  messages.value.push({ role: 'user', content: text })
+  messages.value.push({ role: 'user', content: text, topic: 'pending' })
   busy.value = true
   startThinking()
   await scrollBottom()
   try {
-    const payload = messages.value.filter((m) => m.content).map((m) => ({ role: m.role, content: m.content }))
-    const data = await assistantApi.chat(payload, currentContext())
+    const data = await assistantApi.chat(text, currentContext())
     messages.value.push({
       role: 'assistant',
       content: data.reply,
       draft: data.draft ?? undefined,
       steps: data.steps,
     })
+    if (data.topic === 'new') {
+      topics.value.push({ id: `local_${Date.now()}`, title: text.slice(0, 36), created_at: Math.floor(Date.now() / 1000) })
+    }
     if (data.mutated) {
       const table = typeof route.params.tableName === 'string' ? route.params.tableName : ''
       const note = typeof route.params.noteId === 'string' ? route.params.noteId : ''
@@ -298,10 +300,22 @@ async function confirmDraft(m: ChatMsg) {
 .asst {
   flex-shrink: 0;
   display: flex;
+  position: relative;
   border-left: 1px solid #e9e9e7;
   background: #fbfbfa;
-  width: 360px;
+  min-width: 280px;
 }
+.asst-resize {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 2;
+}
+.asst-resize:hover,
+.asst-resize.active { background: rgba(55, 53, 47, 0.15); }
 .asst-body {
   flex: 1;
   min-width: 0;
