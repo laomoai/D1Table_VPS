@@ -190,12 +190,16 @@ function formatSize(bytes: number): string {
   overflow: hidden;
   background: #f0f2f5;
   cursor: pointer;
+  display: flex;
+  justify-content: center;
 }
 .preview-img {
-  width: 100%;
-  max-height: 200px;
-  object-fit: cover;
   display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(70vh, 640px);
+  object-fit: contain;
 }
 .preview-overlay {
   position: absolute;
