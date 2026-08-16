@@ -89,15 +89,15 @@ async function listWorkspaceBrief(c: { env: Env; get: (k: string) => unknown }) 
     .map((n) => ({ id: n.id, kind: n.kind, title: n.title, parent_id: n.parent_id, ref: n.ref }))
 }
 
-async function xaiChat(apiKey: string, messages: unknown[]) {
-  const resp = await fetch('https://api.x.ai/v1/chat/completions', {
+async function llmChat(apiKey: string, messages: unknown[]) {
+  const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'grok-4.5',
+      model: 'deepseek-chat',
       messages,
       tools: TOOLS,
       tool_choice: 'auto',
@@ -120,9 +120,9 @@ async function xaiChat(apiKey: string, messages: unknown[]) {
 }
 
 assistant.post('/chat', async (c) => {
-  const apiKey = c.env.XAI_API_KEY
+  const apiKey = c.env.DEEPSEEK_API_KEY
   if (!apiKey) {
-    return c.json({ error: { code: 'NOT_CONFIGURED', message: '未配置 XAI_API_KEY，无法使用助手' } }, 503)
+    return c.json({ error: { code: 'NOT_CONFIGURED', message: '未配置 DEEPSEEK_API_KEY，无法使用助手' } }, 503)
   }
   const body = await c.req.json<{ messages?: Array<{ role: string; content: string }> }>().catch(() => ({ messages: [] as Array<{ role: string; content: string }> }))
   const incoming = (body.messages ?? []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
@@ -139,7 +139,7 @@ assistant.post('/chat', async (c) => {
   let reply = ''
 
   for (let i = 0; i < 5; i++) {
-    const data = await xaiChat(apiKey, messages)
+    const data = await llmChat(apiKey, messages)
     const msg = data.choices?.[0]?.message
     if (!msg) {
       return c.json({ error: { code: 'MODEL_EMPTY', message: '模型没有返回内容' } }, 502)
