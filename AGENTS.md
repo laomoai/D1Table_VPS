@@ -1,6 +1,6 @@
-# D1Table_VPS
+# 墨问 MoWen
 
-独立于 Cloudflare 版 `laomoai/D1Table`。推送到 `laomoai/D1Table_VPS`。密钥不进 Git。
+独立于 Cloudflare 版 `laomoai/D1Table`。仓库：`laomoai/mowen`。密钥不进 Git。
 
 ## 工作区树（B1）
 

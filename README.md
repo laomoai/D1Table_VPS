@@ -3,7 +3,7 @@
 文件夹里的表格与笔记，加上 API 和内置 AI 助手。适合私有部署。
 
 线上：https://mowen.lemoai.cn  
-仓库：https://github.com/laomoai/D1Table_VPS
+仓库：https://github.com/laomoai/mowen
 
 与 Cloudflare 上的旧项目 [D1Table](https://github.com/laomoai/D1Table) 互不共享数据库和运行时。
 

@@ -3,7 +3,7 @@
 Tables and notes in folders, plus an HTTP API and a built-in assistant. Meant for self-hosting.
 
 Site: https://mowen.lemoai.cn  
-Repo: https://github.com/laomoai/D1Table_VPS
+Repo: https://github.com/laomoai/mowen
 
 This tree is **Node + SQLite + local files**, not the Cloudflare Workers/D1 project [D1Table](https://github.com/laomoai/D1Table). They do not share a database.
 
