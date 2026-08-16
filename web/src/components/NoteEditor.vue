@@ -21,10 +21,6 @@
         </button>
       </div>
       <div class="bar-actions">
-        <button class="bar-btn" title="插入图片" :disabled="uploadingImage" @click="triggerImagePicker">
-          <IonIcon name="ImageOutline" :size="14" />
-          <span class="bar-btn-label">{{ uploadingImage ? '上传中' : '图片' }}</span>
-        </button>
         <button class="bar-btn" title="插入表格引用" @click="emit('insert-table-ref')">
           <IonIcon name="GridOutline" :size="14" />
           <span class="bar-btn-label">表格</span>
@@ -48,6 +44,26 @@
       </div>
       <input ref="appendFileInput" type="file" accept=".md,.markdown,.txt" style="display:none" @change="handleAppendImport" />
       <input ref="imageFileInput" type="file" accept="image/*" style="display:none" @change="handleImageFile" />
+    </div>
+
+    <div
+      v-if="editable"
+      class="note-drop"
+      tabindex="0"
+      :class="{ over: imageDragging, loading: uploadingImage }"
+      @click="triggerImagePicker"
+      @paste="onImagePaste"
+      @dragenter.prevent="imageDragging = true"
+      @dragover.prevent="imageDragging = true"
+      @dragleave.prevent="imageDragging = false"
+      @drop.prevent="onImageDrop"
+    >
+      <span v-if="uploadingImage">上传中…</span>
+      <template v-else>
+        <IonIcon name="ImageOutline" :size="22" />
+        <span>点击或拖拽图片到这里</span>
+        <span class="note-drop-sub">支持 JPG、PNG、GIF、WebP · 可用 Ctrl+V 粘贴</span>
+      </template>
     </div>
 
     <!-- Content area -->
@@ -99,6 +115,7 @@ const router = useRouter()
 const appendFileInput = ref<HTMLInputElement | null>(null)
 const imageFileInput = ref<HTMLInputElement | null>(null)
 const uploadingImage = ref(false)
+const imageDragging = ref(false)
 
 const editorContainer = ref<HTMLElement | null>(null)
 const editorView = shallowRef<EditorView | null>(null)
@@ -291,6 +308,21 @@ async function handleImageFile(event: Event) {
   if (file) await insertImageFile(file)
 }
 
+function onImageDrop(e: DragEvent) {
+  imageDragging.value = false
+  const file = Array.from(e.dataTransfer?.files ?? []).find((f) => f.type.startsWith('image/'))
+  if (file) void insertImageFile(file)
+}
+
+function onImagePaste(e: ClipboardEvent) {
+  const file = Array.from(e.clipboardData?.items ?? [])
+    .find((i) => i.type.startsWith('image/'))
+    ?.getAsFile()
+  if (!file) return
+  e.preventDefault()
+  void insertImageFile(file)
+}
+
 function insertMarkdown(md: string, view?: EditorView) {
   const ed = view ?? editorView.value
   if (!ed) return
@@ -372,6 +404,29 @@ defineExpose({
   min-height: 0;
 }
 /* Toolbar */
+.note-drop {
+  margin: 8px 16px 0;
+  border: 1.5px dashed #d0d3da;
+  border-radius: 8px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #fafbfc;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+.note-drop:hover,
+.note-drop.over {
+  border-color: #4f6ef7;
+  background: #f0f2ff;
+}
+.note-drop.loading { cursor: default; pointer-events: none; }
+.note-drop-sub { font-size: 11px; color: #aaa; }
 .editor-bar {
   display: flex;
   align-items: center;

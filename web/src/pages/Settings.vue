@@ -26,6 +26,21 @@
         </div>
       </n-tab-pane>
 
+      <n-tab-pane name="files" tab="附件">
+        <div class="tab-content">
+          <p class="hint" style="margin:0 0 12px;line-height:1.55">
+            图片存在本机磁盘，表格字段和笔记正文里引用到的会保留。
+            上传后超过 24 小时仍没有被任何表格或笔记用到的，算闲置，可以清理。
+          </p>
+          <div class="hint" style="margin-bottom:12px">
+            共 {{ fileStats?.total ?? '—' }} 个文件，其中闲置 {{ fileStats?.orphan ?? '—' }} 个
+          </div>
+          <n-button size="small" :loading="sweepingFiles" :disabled="!fileStats?.orphan" @click="handleSweepFiles">
+            清理闲置图片
+          </n-button>
+        </div>
+      </n-tab-pane>
+
       <!-- ─── Tab: API Keys ──────────────────────────────── -->
       <n-tab-pane name="keys" tab="API 密钥">
         <div class="tab-content">
@@ -515,6 +530,26 @@ async function handleChangePassword() {
     changingPassword.value = false
   }
 }
+const sweepingFiles = ref(false)
+const { data: fileStats, refetch: refetchFileStats } = useQuery({
+  queryKey: ['upload-file-stats'],
+  queryFn: api.fileStats,
+  retry: false,
+})
+
+async function handleSweepFiles() {
+  sweepingFiles.value = true
+  try {
+    const res = await api.sweepFiles()
+    message.success(res.deleted ? `已删除 ${res.deleted} 个闲置文件` : '没有可清理的闲置文件')
+    await refetchFileStats()
+  } catch (err) {
+    message.error((err as Error).message)
+  } finally {
+    sweepingFiles.value = false
+  }
+}
+
 const exportingNotesBundle = ref(false)
 const exportingTablesBundle = ref(false)
 const newKey = ref({

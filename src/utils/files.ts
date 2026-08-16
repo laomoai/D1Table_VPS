@@ -10,6 +10,7 @@ export type FileMeta = {
   team_id: number | null
   ref_kind: FileRefKind
   ref_id: string | null
+  created_at?: number
 }
 
 export function normalizeStorageKey(raw: string): string | null {
@@ -38,6 +39,70 @@ export async function registerFile(
     opts.refKind ?? 'none',
     opts.refId ?? null,
   ).run()
+}
+
+export async function unregisterFile(db: SqliteDatabase, key: string): Promise<void> {
+  await db.prepare(`DELETE FROM _files WHERE storage_key = ?`).bind(key).run()
+}
+
+export async function collectReferencedKeys(db: SqliteDatabase, teamId?: number): Promise<Set<string>> {
+  const used = new Set<string>()
+  const noteSql = teamId !== undefined
+    ? `SELECT content FROM _notes WHERE deleted_at IS NULL AND team_id = ?`
+    : `SELECT content FROM _notes WHERE deleted_at IS NULL`
+  const notes = teamId !== undefined
+    ? await db.prepare(noteSql).bind(teamId).all<{ content: string | null }>()
+    : await db.prepare(noteSql).all<{ content: string | null }>()
+  const fileRe = /\/api\/files\/(images\/[a-z0-9-]+\/[a-z]+\.webp)/gi
+  for (const row of notes.results ?? []) {
+    const text = row.content || ''
+    let m: RegExpExecArray | null
+    fileRe.lastIndex = 0
+    while ((m = fileRe.exec(text))) used.add(m[1])
+  }
+
+  const imgFields = await db.prepare(
+    `SELECT table_name, column_name FROM _field_meta WHERE field_type = 'image'`,
+  ).all<{ table_name: string; column_name: string }>()
+  for (const f of imgFields.results ?? []) {
+    if (!/^[a-zA-Z0-9_]+$/.test(f.table_name) || !/^[a-zA-Z0-9_]+$/.test(f.column_name)) continue
+    try {
+      const rows = await db.prepare(`SELECT "${f.column_name}" AS v FROM "${f.table_name}"`).all<{ v: string | null }>()
+      for (const row of rows.results ?? []) {
+        if (!row.v) continue
+        try {
+          const parsed = JSON.parse(row.v) as { thumb?: string; display?: string }
+          if (parsed.thumb) used.add(parsed.thumb)
+          if (parsed.display) used.add(parsed.display)
+        } catch {
+          if (row.v.startsWith('images/')) used.add(row.v)
+        }
+      }
+    } catch {
+      /* table may have been dropped */
+    }
+  }
+  return used
+}
+
+export async function listOrphanFiles(
+  db: SqliteDatabase,
+  opts: { teamId?: number; olderThanSec?: number },
+): Promise<FileMeta[]> {
+  const used = await collectReferencedKeys(db, opts.teamId)
+  const sql = opts.teamId !== undefined
+    ? `SELECT storage_key, owner_id, team_id, ref_kind, ref_id, created_at FROM _files WHERE team_id = ?`
+    : `SELECT storage_key, owner_id, team_id, ref_kind, ref_id, created_at FROM _files`
+  const rows = opts.teamId !== undefined
+    ? await db.prepare(sql).bind(opts.teamId).all<FileMeta & { created_at: number }>()
+    : await db.prepare(sql).all<FileMeta & { created_at: number }>()
+  const now = Math.floor(Date.now() / 1000)
+  const minAge = opts.olderThanSec ?? 0
+  return (rows.results ?? []).filter((row) => {
+    if (used.has(row.storage_key)) return false
+    if (minAge && now - (row.created_at || 0) < minAge) return false
+    return true
+  })
 }
 
 export async function getFileMeta(db: SqliteDatabase, key: string): Promise<FileMeta | null> {

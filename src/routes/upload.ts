@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Env, AuthVariables } from '../types'
-import { registerFile, type FileRefKind } from '../utils/files'
+import { listOrphanFiles, registerFile, unregisterFile, type FileRefKind } from '../utils/files'
 
 const upload = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -59,8 +59,40 @@ upload.delete('/image', async (c) => {
     c.env.BUCKET.delete(thumb),
     c.env.BUCKET.delete(display),
   ])
+  await unregisterFile(c.env.DB, thumb)
+  await unregisterFile(c.env.DB, display)
 
   return c.json({ data: { success: true } })
+})
+
+upload.get('/files/stats', async (c) => {
+  const teamId = c.get('teamId')
+  const totalSql = teamId !== undefined
+    ? c.env.DB.prepare(`SELECT COUNT(*) AS n FROM _files WHERE team_id = ?`).bind(teamId)
+    : c.env.DB.prepare(`SELECT COUNT(*) AS n FROM _files`)
+  const total = await totalSql.first<{ n: number }>()
+  const orphans = await listOrphanFiles(c.env.DB, { teamId, olderThanSec: 24 * 3600 })
+  return c.json({
+    data: {
+      total: total?.n ?? 0,
+      orphan: orphans.length,
+      orphan_after_hours: 24,
+    },
+  })
+})
+
+upload.post('/files/sweep', async (c) => {
+  if (c.get('keyType') === 'readonly') {
+    return c.json({ error: { message: '只读密钥不能清理文件' } }, 403)
+  }
+  const orphans = await listOrphanFiles(c.env.DB, { teamId: c.get('teamId'), olderThanSec: 24 * 3600 })
+  let deleted = 0
+  for (const row of orphans) {
+    await c.env.BUCKET.delete(row.storage_key)
+    await unregisterFile(c.env.DB, row.storage_key)
+    deleted += 1
+  }
+  return c.json({ data: { deleted } })
 })
 
 export default upload
