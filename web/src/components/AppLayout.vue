@@ -111,6 +111,7 @@
     <main class="main-content">
       <router-view />
     </main>
+    <AssistantPanel />
 
     <NotePreviewModal />
     <CreateTableModal v-model:show="showCreateTable" :folder-id="createTargetFolder" @created="onTableCreated" />
@@ -152,6 +153,7 @@ import NotePreviewModal from './NotePreviewModal.vue'
 import WorkspaceTreeItem from './WorkspaceTreeItem.vue'
 import CreateTableModal from './CreateTableModal.vue'
 import WorkspaceNameModal from './WorkspaceNameModal.vue'
+import AssistantPanel from './AssistantPanel.vue'
 import AppModal from './AppModal.vue'
 
 const IconPicker = defineAsyncComponent(() => import('./IconPicker.vue'))

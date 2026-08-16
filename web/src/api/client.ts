@@ -370,6 +370,24 @@ export type ArchivedFolder = {
   note_count: number
 }
 
+export type TableDraft = {
+  title: string
+  folder_title?: string
+  folder_id?: string | null
+  create_folder?: boolean
+  fields: Array<{ title: string; field_type: string; options?: string[] }>
+  note?: string
+}
+
+export const assistantApi = {
+  chat: (messages: Array<{ role: string; content: string }>) =>
+    http.post<{ data: { reply: string; draft: TableDraft | null } }>('/assistant/chat', { messages }, { timeout: 90000 })
+      .then((r) => r.data.data),
+  confirm: (draft: TableDraft) =>
+    http.post<{ data: { name: string; title: string; folder_id: string | null } }>('/assistant/confirm', { draft })
+      .then((r) => r.data.data),
+}
+
 export const workspaceApi = {
   getTree: () =>
     http.get<{ data: WorkspaceNode[] }>('/workspace/tree').then(r => r.data.data),

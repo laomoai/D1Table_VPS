@@ -11,6 +11,7 @@ export type Env = {
   PUBLIC_ORIGIN: string
   RESEND_API_KEY?: string
   MAIL_FROM?: string
+  XAI_API_KEY?: string
 }
 
 export type SessionUser = {
