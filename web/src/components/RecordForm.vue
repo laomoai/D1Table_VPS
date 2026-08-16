@@ -160,7 +160,7 @@
                 <IonIcon v-else :name="item.hasChildren ? 'FolderOutline' : 'DocumentOutline'" :size="14" />
               </span>
               <HoverTooltipText
-                :text="item.note.title || 'Untitled'"
+                :text="item.note.title || '未命名'"
                 class-name="nlp-name"
               />
             </div>
@@ -388,7 +388,7 @@ function getSelectedNoteTitle(colName: string): string {
   const id = extractLinkId(formData.value[colName])
   if (!id) return ''
   const note = (allNotes.value ?? []).find(n => n.id === id)
-  return note ? `${note.title || 'Untitled'}` : `#${id}`
+  return note ? `${note.title || '未命名'}` : `#${id}`
 }
 
 // ── 日期工具（兼容数字、数字字符串、日期字符串）──────────────

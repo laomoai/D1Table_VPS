@@ -1,581 +1,361 @@
 <template>
   <div class="dashboard">
     <div class="dashboard-inner">
-      <!-- Header -->
       <div class="dash-header">
         <div>
-          <h1 class="dash-title">表格</h1>
-          <p class="dash-desc">管理你的全部数据表</p>
+          <h1 class="dash-title">工作区</h1>
+          <p class="dash-desc">最近用过的表格和笔记，以及按文件夹整理的内容</p>
         </div>
-        <button class="new-table-btn" @click="showCreateTable = true">
-          <span class="btn-icon">+</span>
-          新建表格
-        </button>
-      </div>
-
-      <!-- Search + Tabs -->
-      <div class="search-tabs-area">
-        <!-- Search -->
-        <div class="search-wrap">
-          <span class="search-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="search-input"
-            placeholder="搜索表格…"
-          />
-        </div>
-
-        <!-- Tabs -->
-        <div class="tabs-bar">
-          <button
-            v-for="tab in tabs"
-            :key="tab"
-            class="tab-btn"
-            :class="{ active: activeTab === tab }"
-            @click="activeTab = tab"
-          >
-            <span v-if="tab === '最近'" class="tab-clock-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            </span>
-            {{ tab }}
-            <span v-if="activeTab === tab" class="tab-indicator" />
+        <div class="new-wrap">
+          <button class="new-table-btn" @click="showNewMenu = !showNewMenu">
+            <span class="btn-icon">+</span>
+            新建
           </button>
-          <span class="tab-separator" />
-          <button class="tab-add-btn" @click="showNewGroup = true" title="新建分组">+</button>
-        </div>
-      </div>
-
-      <!-- Loading -->
-      <n-spin v-if="isLoading" style="padding: 80px; display: flex; justify-content: center;" />
-
-      <!-- Content -->
-      <template v-else>
-        <div class="sections">
-          <div v-for="(items, groupName) in groupedData" :key="groupName" class="group-section">
-            <div class="group-section-header">
-              <div class="group-header-left">
-                <h2 class="group-section-name">{{ groupName }}</h2>
-                <span class="group-section-count">{{ items.length }} 张表</span>
-                <button
-                  v-if="getGroupByName(groupName)"
-                  class="group-settings-btn"
-                  @click="openEditGroup(groupName)"
-                  title="编辑分组"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                </button>
-              </div>
-            </div>
-            <div v-if="items.length === 0" class="group-empty">这个文件夹里还没有表格，点齿轮添加。</div>
-            <div v-else class="table-cards">
-              <div
-                v-for="t in items"
-                :key="t.name"
-                class="table-card"
-                @click="onCardClick(t)"
-              >
-                <div class="card-left">
-                  <div class="card-icon" @click.stop="openIconPicker(t)" title="点击更换图标">
-                    <span v-if="t.icon && !t.icon.startsWith('ion:')" class="card-icon-emoji">{{ t.icon }}</span>
-                    <IonIcon v-else-if="t.icon" :name="t.icon.slice(4)" :size="20" />
-                    <span v-else class="card-icon-emoji" style="opacity: 0.4;">📊</span>
-                  </div>
-                  <div class="card-info">
-                    <span class="card-title">{{ t.title || t.name }}</span>
-                    <div class="card-meta">
-                      <span class="card-id" @click.stop="copyTableId(t.name)">
-                        ID: {{ t.name }}
-                        <span class="card-copy-icon">
-                          <template v-if="copiedId === t.name">✓</template>
-                          <template v-else>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                          </template>
-                        </span>
-                      </span>
-                      <span class="card-count">{{ t.row_count ?? 0 }} records</span>
-                      <span v-if="activeTab === '最近' && recentAccess[t.name]" class="card-last-access">
-                        · {{ formatDate(recentAccess[t.name]) }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <n-dropdown
-                  trigger="click"
-                  :options="cardMenuOptions"
-                  @select="(key) => handleCardMenuSelect(key as string, t)"
-                >
-                  <button
-                    class="card-menu-btn"
-                    @click.stop
-                    title="表格操作"
-                    aria-label="表格操作"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <circle cx="5" cy="12" r="1.75" />
-                      <circle cx="12" cy="12" r="1.75" />
-                      <circle cx="19" cy="12" r="1.75" />
-                    </svg>
-                  </button>
-                </n-dropdown>
-              </div>
-            </div>
+          <div v-if="showNewMenu" class="new-menu">
+            <button @click="openCreateFolder">文件夹</button>
+            <button @click="openCreateTable">表格</button>
+            <button @click="openCreateNote">笔记</button>
           </div>
         </div>
+      </div>
 
-        <!-- Empty state -->
-        <div v-if="Object.keys(groupedData).length === 0 && !isLoading" class="empty-state">
-          <div class="empty-icon-big">🔍</div>
-          <p class="empty-text">没有找到表格 matching your criteria.</p>
+      <div class="search-wrap">
+        <span class="search-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input v-model="searchQuery" type="text" class="search-input" placeholder="搜索表格或笔记…" />
+      </div>
+
+      <n-spin v-if="isLoading" style="padding: 80px; display: flex; justify-content: center;" />
+
+      <template v-else>
+        <section class="group-section">
+          <div class="group-section-header">
+            <h2 class="group-section-name">最近</h2>
+            <span class="group-section-count">{{ recentItems.length }}</span>
+          </div>
+          <div v-if="recentItems.length === 0" class="group-empty">打开过的表格和笔记会出现在这里。</div>
+          <div v-else class="table-cards">
+            <article
+              v-for="item in recentItems"
+              :key="`${item.kind}:${item.id}`"
+              class="table-card"
+              @click="openItem(item)"
+            >
+              <div class="card-left">
+                <div class="card-icon" @click.stop="openItemIcon(item)" title="更换图标">
+                  <NodeGlyph :icon="item.icon" :kind="item.kind" />
+                </div>
+                <div class="card-info">
+                  <span class="card-title">{{ item.title || '未命名' }}</span>
+                  <div class="card-meta">
+                    <span class="card-kind">{{ item.kind === 'table' ? '表格' : '笔记' }}</span>
+                    <span v-if="item.at" class="card-last-access">{{ formatRecentTime(item.at) }}</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section v-for="folder in folderSections" :key="folder.id" class="group-section">
+          <div class="group-section-header">
+            <div class="group-header-left">
+              <button class="folder-icon-btn" title="更换图标" @click="openFolderIcon(folder)">
+                <NodeGlyph :icon="folder.icon" kind="folder" />
+              </button>
+              <h2 class="group-section-name">{{ folder.title || '未命名文件夹' }}</h2>
+              <span class="group-section-count">{{ folder.items.length }}</span>
+            </div>
+          </div>
+          <div v-if="folder.items.length === 0" class="group-empty">这个文件夹还是空的，用侧栏 ••• 添加。</div>
+          <div v-else class="table-cards">
+            <article
+              v-for="item in folder.items"
+              :key="item.id"
+              class="table-card"
+              @click="openItem(item)"
+            >
+              <div class="card-left">
+                <div class="card-icon" @click.stop="openItemIcon(item)" title="更换图标">
+                  <NodeGlyph :icon="item.icon" :kind="item.kind" />
+                </div>
+                <div class="card-info">
+                  <span class="card-title">{{ item.title || '未命名' }}</span>
+                  <div class="card-meta">
+                    <span class="card-kind">{{ item.kind === 'table' ? '表格' : '笔记' }}</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="looseItems.length" class="group-section">
+          <div class="group-section-header">
+            <h2 class="group-section-name">未放入文件夹</h2>
+            <span class="group-section-count">{{ looseItems.length }}</span>
+          </div>
+          <div class="table-cards">
+            <article
+              v-for="item in looseItems"
+              :key="item.id"
+              class="table-card"
+              @click="openItem(item)"
+            >
+              <div class="card-left">
+                <div class="card-icon" @click.stop="openItemIcon(item)" title="更换图标">
+                  <NodeGlyph :icon="item.icon" :kind="item.kind" />
+                </div>
+                <div class="card-info">
+                  <span class="card-title">{{ item.title || '未命名' }}</span>
+                  <div class="card-meta">
+                    <span class="card-kind">{{ item.kind === 'table' ? '表格' : '笔记' }}</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <div v-if="!isLoading && !hasAnything" class="empty-state">
+          <div class="empty-icon-big">✦</div>
+          <p class="empty-text">工作区还是空的。先建一个文件夹、表格或笔记。</p>
         </div>
       </template>
 
-      <!-- Icon picker modal -->
       <AppModal v-model:show="showIconPicker" title="更换图标" width="360px" height="auto">
-        <icon-picker
-          :current-icon="iconPickerTarget?.icon ?? null"
-          @select="onIconSelect"
-        />
+        <icon-picker :current-icon="iconTarget?.icon ?? null" @select="onIconSelect" />
       </AppModal>
 
-      <AppModal v-model:show="showRenameTable" title="重命名表格" width="420px" height="auto">
+      <AppModal v-model:show="showNameModal" :title="nameKind === 'folder' ? '新建文件夹' : '新建笔记'" width="420px" height="auto">
         <div class="rename-form">
-          <label class="ng-label">显示名称</label>
           <input
-            v-model="renameTitle"
+            v-model="newName"
             class="ng-input"
-            placeholder="输入显示名称"
-            @keyup.enter="saveRename"
+            :placeholder="nameKind === 'folder' ? '文件夹名称' : '笔记标题'"
+            @keyup.enter="submitName"
           />
-          <div class="rename-meta">表格 ID： {{ renameTarget?.name }}</div>
           <div class="ng-footer">
-            <button class="ng-btn" @click="showRenameTable = false">取消</button>
-            <button class="ng-btn primary" :disabled="!renameTitle.trim()" @click="saveRename">保存</button>
+            <button class="ng-btn" @click="showNameModal = false">取消</button>
+            <button class="ng-btn primary" :disabled="!newName.trim()" @click="submitName">创建</button>
           </div>
         </div>
       </AppModal>
 
       <CreateTableModal
         v-model:show="showCreateTable"
-        @created="(name: string) => { queryClient.invalidateQueries({ queryKey: ['tables'] }); router.push(`/tables/${name}`) }"
+        @created="onTableCreated"
       />
-
-      <!-- Edit Group modal -->
-      <AppModal v-model:show="showEditGroup" title="编辑分组" width="440px" height="auto">
-        <div class="ng-form">
-          <label class="ng-label">分组名称</label>
-          <input v-model="editGroupName" class="ng-input" placeholder="分组名称" />
-          <label class="ng-label" style="margin-top:16px;">包含的表格</label>
-          <div class="ng-hint">{{ editGroupTables.size }} selected</div>
-          <div class="ng-table-list">
-            <label
-              v-for="t in tables ?? []"
-              :key="t.name"
-              class="ng-table-item"
-            >
-              <input
-                type="checkbox"
-                :checked="editGroupTables.has(t.name)"
-                @change="toggleEditGroupTable(t.name)"
-                class="ng-checkbox"
-              />
-              <span class="ng-table-icon">{{ t.icon && !t.icon.startsWith('ion:') ? t.icon : '📊' }}</span>
-              <span class="ng-table-name">{{ t.title || t.name }}</span>
-            </label>
-          </div>
-          <div class="ng-footer">
-            <button class="ng-btn danger" @click="deleteGroup">删除分组</button>
-            <span style="flex:1" />
-            <button class="ng-btn" @click="showEditGroup = false">取消</button>
-            <button class="ng-btn primary" :disabled="!editGroupName.trim()" @click="saveEditGroup">保存</button>
-          </div>
-        </div>
-      </AppModal>
-
-      <!-- New Group modal -->
-      <AppModal v-model:show="showNewGroup" title="新建分组" width="440px" height="auto">
-        <div class="ng-form">
-          <label class="ng-label">分组名称</label>
-          <input v-model="newGroupName" class="ng-input" placeholder="例如：市场、研发…" />
-          <label class="ng-label" style="margin-top:16px;">包含的表格</label>
-          <div class="ng-hint">{{ newGroupTables.size }} selected</div>
-          <div class="ng-table-list">
-            <label
-              v-for="t in tables ?? []"
-              :key="t.name"
-              class="ng-table-item"
-            >
-              <input
-                type="checkbox"
-                :checked="newGroupTables.has(t.name)"
-                @change="toggleNewGroupTable(t.name)"
-                class="ng-checkbox"
-              />
-              <span class="ng-table-icon">{{ t.icon && !t.icon.startsWith('ion:') ? t.icon : '📊' }}</span>
-              <span class="ng-table-name">{{ t.title || t.name }}</span>
-            </label>
-          </div>
-          <div class="ng-footer">
-            <button class="ng-btn" @click="showNewGroup = false">取消</button>
-            <button class="ng-btn primary" :disabled="!newGroupName.trim()" @click="createGroup">保存</button>
-          </div>
-        </div>
-      </AppModal>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, h, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { NDropdown, NSpin, useDialog, useMessage } from 'naive-ui'
-import { api, type TableMeta } from '@/api/client'
+import { NSpin, useMessage } from 'naive-ui'
+import { api, notesApi, workspaceApi, type WorkspaceKind, type WorkspaceNode } from '@/api/client'
 import CreateTableModal from '@/components/CreateTableModal.vue'
 import AppModal from '@/components/AppModal.vue'
 import IonIcon from '@/components/IonIcon.vue'
+import { formatRecentTime, loadRecentAccess } from '@/utils/recentAccess'
 
 const IconPicker = defineAsyncComponent(() => import('@/components/IconPicker.vue'))
 
 const router = useRouter()
 const queryClient = useQueryClient()
 const message = useMessage()
-const dialog = useDialog()
 
-// ── Data fetching ──
-const { data: tables, isLoading } = useQuery({
-  queryKey: ['tables'],
-  queryFn: api.getTables,
+const { data: nodes, isLoading } = useQuery({
+  queryKey: ['workspace'],
+  queryFn: workspaceApi.getTree,
 })
 
-const { data: groups } = useQuery({
-  queryKey: ['groups'],
-  queryFn: api.getGroups,
-  retry: false,
-})
-
-// ── State ──
 const searchQuery = ref('')
-const activeTab = ref('最近')
+const showNewMenu = ref(false)
 const showCreateTable = ref(false)
-const copiedId = ref<string | null>(null)
-const showRenameTable = ref(false)
-const renameTarget = ref<TableMeta | null>(null)
-const renameTitle = ref('')
-const cardMenuOptions = [
-  { label: '重命名', key: 'rename' },
-  { label: '删除', key: 'delete' },
-]
+const showNameModal = ref(false)
+const nameKind = ref<'folder' | 'note'>('folder')
+const newName = ref('')
+const showIconPicker = ref(false)
+const iconTarget = ref<DashItem | null>(null)
 
-// ── Recent access tracking via localStorage ──
-const RECENT_KEY = 'd1table_recent_access'
+type DashItem = {
+  id: string
+  kind: Exclude<WorkspaceKind, 'folder'> | 'folder'
+  title: string
+  icon: string | null
+  ref: string | null
+  at?: number
+}
 
-function loadRecentAccess(): Record<string, number> {
-  try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) || '{}')
-  } catch {
-    return {}
+const NodeGlyph = (props: { icon: string | null; kind: WorkspaceKind }) => {
+  if (props.icon && !props.icon.startsWith('ion:')) {
+    return h('span', { class: 'card-icon-emoji' }, props.icon)
   }
+  if (props.icon?.startsWith('ion:')) {
+    return h(IonIcon, { name: props.icon.slice(4), size: 20 })
+  }
+  const fallback = props.kind === 'folder' ? 'FolderOutline' : props.kind === 'table' ? 'GridOutline' : 'DocumentOutline'
+  return h(IonIcon, { name: fallback, size: 20 })
 }
 
-const recentAccess = ref<Record<string, number>>(loadRecentAccess())
+const visibleNodes = computed(() => (nodes.value ?? []).filter((n) => !n.archived_at))
 
-function trackAccess(tableName: string) {
-  recentAccess.value[tableName] = Date.now()
-  localStorage.setItem(RECENT_KEY, JSON.stringify(recentAccess.value))
+const q = computed(() => searchQuery.value.trim().toLowerCase())
+
+function matches(n: WorkspaceNode) {
+  if (!q.value) return true
+  return (n.title || '').toLowerCase().includes(q.value)
 }
 
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString()
-}
-
-// ── Sorting helpers (consistent with sidebar) ──
-const tableOrder = ref<string[]>(
-  JSON.parse(localStorage.getItem('d1table_table_order') ?? 'null') ?? []
+const folders = computed(() =>
+  visibleNodes.value.filter((n) => n.kind === 'folder').sort((a, b) => a.sort_order - b.sort_order),
 )
-const groupOrder = ref<number[]>(
-  JSON.parse(localStorage.getItem('d1table_group_order') ?? 'null') ?? []
+
+function toItem(n: WorkspaceNode, at?: number): DashItem {
+  return { id: n.id, kind: n.kind, title: n.title, icon: n.icon, ref: n.ref, at }
+}
+
+const folderSections = computed(() => {
+  return folders.value.map((folder) => {
+    const items = visibleNodes.value
+      .filter((n) => n.parent_id === folder.id && n.kind !== 'folder' && matches(n))
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((n) => toItem(n))
+    if (q.value && items.length === 0 && !matches(folder)) return null
+    return { id: folder.id, title: folder.title, icon: folder.icon, items }
+  }).filter((x): x is { id: string; title: string; icon: string | null; items: DashItem[] } => !!x)
+})
+
+const looseItems = computed(() =>
+  visibleNodes.value
+    .filter((n) => !n.parent_id && n.kind !== 'folder' && matches(n))
+    .map((n) => toItem(n)),
 )
 
-function sortedTables(list: TableMeta[]): TableMeta[] {
-  if (!tableOrder.value.length) return list
-  const idx = (name: string) => {
-    const i = tableOrder.value.indexOf(name)
-    return i === -1 ? 9999 : i
+const recentItems = computed(() => {
+  const list = visibleNodes.value
+  const byRef = new Map<string, WorkspaceNode>()
+  for (const n of list) {
+    if (n.kind === 'table' && n.ref) byRef.set(`table:${n.ref}`, n)
+    if (n.kind === 'note' && n.ref) byRef.set(`note:${n.ref}`, n)
   }
-  return [...list].sort((a, b) => idx(a.name) - idx(b.name))
-}
-
-function sortedGroupsList<T extends { id: number }>(list: T[]): T[] {
-  if (!groupOrder.value.length) return list
-  const idx = (id: number) => {
-    const i = groupOrder.value.indexOf(id)
-    return i === -1 ? 9999 : i
+  const seen = new Set<string>()
+  const out: DashItem[] = []
+  for (const rec of loadRecentAccess()) {
+    const n = byRef.get(`${rec.kind}:${rec.id}`)
+    if (!n || !matches(n)) continue
+    const key = `${rec.kind}:${rec.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(toItem(n, rec.at))
+    if (out.length >= 12) break
   }
-  return [...list].sort((a, b) => idx(a.id) - idx(b.id))
-}
-
-// ── Tabs ──
-const dynamicGroupNames = computed(() => {
-  if (!groups.value || groups.value.length === 0) return []
-  return sortedGroupsList(groups.value).map(g => g.name)
+  return out
 })
 
-const tabs = computed(() => {
-  return ['最近', ...dynamicGroupNames.value, '全部']
-})
+const hasAnything = computed(() =>
+  recentItems.value.length + folderSections.value.length + looseItems.value.length > 0,
+)
 
-// ── Filtering ──
-const filteredData = computed(() => {
-  if (!tables.value) return []
-  let filtered = [...tables.value]
-
-  // Search filter
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(
-      t => (t.title || '').toLowerCase().includes(q) || t.name.toLowerCase().includes(q)
-    )
-  }
-
-  // Tab filter
-  if (activeTab.value === '最近') {
-    // Sort by last accessed (most recent first), tables never accessed go to bottom
-    filtered = [...filtered].sort((a, b) => {
-      const aTime = recentAccess.value[a.name] || 0
-      const bTime = recentAccess.value[b.name] || 0
-      return bTime - aTime
-    })
-  } else if (activeTab.value !== '全部') {
-    // Filter by group name
-    const group = groups.value?.find(g => g.name === activeTab.value)
-    if (group) {
-      const groupTableNames = new Set(group.tables)
-      filtered = filtered.filter(t => groupTableNames.has(t.name))
-    }
-  }
-
-  return filtered
-})
-
-// ── Grouped display ──
-const groupedData = computed<Record<string, TableMeta[]>>(() => {
-  const data = filteredData.value
-  if (!data.length && activeTab.value !== '全部') return {}
-
-  if (activeTab.value === '最近') {
-    return { '最近访问': data }
-  }
-
-  if (activeTab.value !== '全部') {
-    // Single group tab - show as one section
-    return { [activeTab.value]: data }
-  }
-
-  // "All" tab - group by group membership
-  if (!groups.value || groups.value.length === 0) {
-    return { '全部表格': sortedTables(data) }
-  }
-
-  const result: Record<string, TableMeta[]> = {}
-  const groupedNames = new Set<string>()
-
-  for (const g of sortedGroupsList(groups.value)) {
-    const groupTableNames = new Set(g.tables)
-    const groupTables = sortedTables(data.filter(t => groupTableNames.has(t.name)))
-    result[g.name] = groupTables
-    groupTables.forEach(t => groupedNames.add(t.name))
-  }
-
-  const ungrouped = sortedTables(data.filter(t => !groupedNames.has(t.name)))
-  if (ungrouped.length > 0) {
-    result['未分组'] = ungrouped
-  }
-
-  return result
-})
-
-// ── Actions ──
-function onCardClick(t: TableMeta) {
-  trackAccess(t.name)
-  router.push(`/tables/${t.name}`)
+function openItem(item: DashItem) {
+  if (item.kind === 'table' && item.ref) router.push(`/tables/${item.ref}`)
+  else if (item.kind === 'note' && item.ref) router.push(`/notes/${item.ref}`)
 }
 
-function copyTableId(name: string) {
-  navigator.clipboard.writeText(name)
-  copiedId.value = name
-  setTimeout(() => { copiedId.value = null }, 1500)
-}
-
-function handleCardMenuSelect(key: string, table: TableMeta) {
-  if (key === 'rename') {
-    renameTarget.value = table
-    renameTitle.value = table.title || table.name
-    showRenameTable.value = true
+function openItemIcon(item: DashItem) {
+  if (item.kind === 'folder') {
+    openFolderIcon(item)
     return
   }
-
-  if (key === 'delete') {
-    dialog.warning({
-      title: '删除表格',
-      content: `删除「${table.title || table.name}」？表格及其全部记录都会被删除。`,
-      positiveText: '删除',
-      negativeText: '取消',
-      onPositiveClick: async () => {
-        try {
-          await api.deleteTable(table.name)
-          message.success('表格已删除')
-          queryClient.invalidateQueries({ queryKey: ['tables'] })
-          queryClient.invalidateQueries({ queryKey: ['groups'] })
-        } catch (err) {
-          message.error((err as Error).message)
-        }
-      },
-    })
-  }
+  iconTarget.value = item
+  showIconPicker.value = true
 }
 
-async function saveRename() {
-  if (!renameTarget.value || !renameTitle.value.trim()) return
-
-  try {
-    await api.updateTableTitle(renameTarget.value.name, renameTitle.value.trim())
-    message.success('表格名称已更新')
-    queryClient.invalidateQueries({ queryKey: ['tables'] })
-    showRenameTable.value = false
-    renameTarget.value = null
-    renameTitle.value = ''
-  } catch (err) {
-    message.error((err as Error).message)
-  }
-}
-
-// ── Icon picker ──
-const showIconPicker = ref(false)
-const iconPickerTarget = ref<TableMeta | null>(null)
-
-function openIconPicker(t: TableMeta) {
-  iconPickerTarget.value = t
+function openFolderIcon(folder: { id: string; icon: string | null; title?: string }) {
+  iconTarget.value = { id: folder.id, kind: 'folder', title: folder.title || '', icon: folder.icon, ref: null }
   showIconPicker.value = true
 }
 
 async function onIconSelect(icon: string | null) {
-  if (!iconPickerTarget.value) return
+  const target = iconTarget.value
   showIconPicker.value = false
+  iconTarget.value = null
+  if (!target) return
   try {
-    await api.updateTableIcon(iconPickerTarget.value.name, icon)
-    queryClient.invalidateQueries({ queryKey: ['tables'] })
-  } catch (err) {
-    message.error((err as Error).message)
-  }
-  iconPickerTarget.value = null
-}
-
-// ── Edit Group ──
-const showEditGroup = ref(false)
-const editGroupId = ref<number | null>(null)
-const editGroupName = ref('')
-const editGroupTables = ref(new Set<string>())
-
-function getGroupByName(name: string) {
-  return groups.value?.find(g => g.name === name) ?? null
-}
-
-function openEditGroup(groupName: string) {
-  const group = getGroupByName(groupName)
-  if (!group) return
-  editGroupId.value = group.id
-  editGroupName.value = group.name
-  editGroupTables.value = new Set(group.tables)
-  showEditGroup.value = true
-}
-
-function toggleEditGroupTable(name: string) {
-  const s = new Set(editGroupTables.value)
-  if (s.has(name)) s.delete(name); else s.add(name)
-  editGroupTables.value = s
-}
-
-async function saveEditGroup() {
-  if (!editGroupId.value || !editGroupName.value.trim()) return
-  try {
-    await api.updateGroup(editGroupId.value, { name: editGroupName.value.trim() })
-    await api.setGroupTables(editGroupId.value, [...editGroupTables.value])
-    queryClient.invalidateQueries({ queryKey: ['groups'] })
-    queryClient.invalidateQueries({ queryKey: ['tables'] })
-    queryClient.invalidateQueries({ queryKey: ['workspace'] })
-    showEditGroup.value = false
-    message.success('分组已更新')
-  } catch (err) {
-    message.error((err as Error).message)
-  }
-}
-
-async function deleteGroup() {
-  if (!editGroupId.value) return
-  dialog.warning({
-    title: '删除分组',
-    content: `删除分组「${editGroupName.value}」？分组里的表格不会被删除。`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await api.deleteGroup(editGroupId.value!)
-        queryClient.invalidateQueries({ queryKey: ['groups'] })
-        queryClient.invalidateQueries({ queryKey: ['workspace'] })
-        showEditGroup.value = false
-        message.success('分组已删除')
-        if (activeTab.value === editGroupName.value) {
-          activeTab.value = '最近'
-        }
-      } catch (err) {
-        message.error((err as Error).message)
-      }
-    },
-  })
-}
-
-// ── New Group ──
-const showNewGroup = ref(false)
-const newGroupName = ref('')
-const newGroupTables = ref(new Set<string>())
-
-function toggleNewGroupTable(name: string) {
-  const s = new Set(newGroupTables.value)
-  if (s.has(name)) s.delete(name); else s.add(name)
-  newGroupTables.value = s
-}
-
-async function createGroup() {
-  if (!newGroupName.value.trim()) return
-  try {
-    const result = await api.createGroup(newGroupName.value.trim())
-    queryClient.invalidateQueries({ queryKey: ['workspace'] })
-    if (newGroupTables.value.size > 0) {
-      await api.setGroupTables(result.id, [...newGroupTables.value])
+    if (target.kind === 'folder') await workspaceApi.updateFolderIcon(target.id, icon)
+    else if (target.kind === 'table' && target.ref) {
+      await api.updateTableIcon(target.ref, icon)
+    } else if (target.kind === 'note' && target.ref) {
+      await notesApi.updateNote(target.ref, { icon })
     }
-    queryClient.invalidateQueries({ queryKey: ['groups'] })
-    showNewGroup.value = false
-    newGroupName.value = ''
-    newGroupTables.value = new Set()
-    message.success('分组已创建')
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    queryClient.invalidateQueries({ queryKey: ['tables'] })
+    queryClient.invalidateQueries({ queryKey: ['notes'] })
   } catch (err) {
     message.error((err as Error).message)
   }
 }
 
-watch(showNewGroup, (v) => {
-  if (v) { newGroupName.value = ''; newGroupTables.value = new Set() }
-})
+function closeNewMenu() {
+  showNewMenu.value = false
+}
 
-watch(showRenameTable, (v) => {
-  if (!v) {
-    renameTarget.value = null
-    renameTitle.value = ''
+function openCreateTable() {
+  closeNewMenu()
+  showCreateTable.value = true
+}
+
+function openCreateFolder() {
+  closeNewMenu()
+  nameKind.value = 'folder'
+  newName.value = ''
+  showNameModal.value = true
+}
+
+function openCreateNote() {
+  closeNewMenu()
+  nameKind.value = 'note'
+  newName.value = ''
+  showNameModal.value = true
+}
+
+async function submitName() {
+  const title = newName.value.trim()
+  if (!title) return
+  try {
+    if (nameKind.value === 'folder') {
+      await workspaceApi.createFolder({ title })
+      queryClient.invalidateQueries({ queryKey: ['workspace'] })
+      showNameModal.value = false
+      message.success('文件夹已创建')
+    } else {
+      const result = await notesApi.createNote({ title })
+      queryClient.invalidateQueries({ queryKey: ['workspace'] })
+      showNameModal.value = false
+      router.push(`/notes/${result.id}`)
+    }
+  } catch (err) {
+    message.error((err as Error).message)
   }
-})
+}
+
+function onTableCreated(name: string) {
+  queryClient.invalidateQueries({ queryKey: ['workspace'] })
+  queryClient.invalidateQueries({ queryKey: ['tables'] })
+  router.push(`/tables/${name}`)
+}
+
+function onDocClick(e: MouseEvent) {
+  const el = e.target as HTMLElement
+  if (!el.closest('.new-wrap')) showNewMenu.value = false
+}
+
+onMounted(() => document.addEventListener('click', onDocClick))
+onUnmounted(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <style scoped>
@@ -585,19 +365,16 @@ watch(showRenameTable, (v) => {
   background: #fff;
   color: #37352f;
 }
-
 .dashboard-inner {
   max-width: 860px;
   margin: 0 auto;
   padding: 48px 24px 80px;
 }
-
-/* ── Header ── */
 .dash-header {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 @media (min-width: 640px) {
   .dash-header {
@@ -606,7 +383,6 @@ watch(showRenameTable, (v) => {
     align-items: flex-end;
   }
 }
-
 .dash-title {
   font-size: 30px;
   font-weight: 700;
@@ -614,13 +390,12 @@ watch(showRenameTable, (v) => {
   margin: 0 0 4px;
   letter-spacing: -0.02em;
 }
-
 .dash-desc {
   font-size: 14px;
   color: #787774;
   margin: 0;
 }
-
+.new-wrap { position: relative; align-self: flex-start; }
 .new-table-btn {
   display: inline-flex;
   align-items: center;
@@ -634,36 +409,35 @@ watch(showRenameTable, (v) => {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  white-space: nowrap;
+}
+.new-table-btn:hover { background: #2f2d2a; }
+.btn-icon { font-size: 16px; line-height: 1; }
+.new-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #fff;
+  border: 1px solid #e9e9e7;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 15, 15, 0.08);
+  min-width: 140px;
+  z-index: 20;
+  padding: 4px;
+}
+.new-menu button {
+  display: block;
   width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #37352f;
+  cursor: pointer;
 }
-@media (min-width: 640px) {
-  .new-table-btn {
-    width: auto;
-  }
-}
-.new-table-btn:hover {
-  background: #2f2d2a;
-}
-.btn-icon {
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-/* ── Search + Tabs ── */
-.search-tabs-area {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
-.search-wrap {
-  position: relative;
-}
+.new-menu button:hover { background: #f1f1ef; }
+.search-wrap { position: relative; margin-bottom: 36px; }
 .search-icon {
   position: absolute;
   left: 12px;
@@ -671,7 +445,6 @@ watch(showRenameTable, (v) => {
   transform: translateY(-50%);
   color: #787774;
   display: flex;
-  align-items: center;
   pointer-events: none;
 }
 .search-input {
@@ -684,131 +457,36 @@ watch(showRenameTable, (v) => {
   font-size: 14px;
   color: #37352f;
   outline: none;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-  box-shadow: inset 0 0 0 1px rgba(15, 15, 15, 0.05);
-}
-.search-input::placeholder {
-  color: #9b9a97;
-}
-.search-input:hover {
-  background: #efefed;
 }
 .search-input:focus {
   background: #fff;
-  border-color: #e9e9e7;
   box-shadow: inset 0 0 0 1px rgba(35, 131, 226, 0.5), 0 0 0 2px rgba(35, 131, 226, 0.2);
 }
-
-/* ── Tabs ── */
-.tabs-bar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-bottom: 1px solid #e9e9e7;
-  padding-bottom: 1px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.tabs-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.tab-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #787774;
-  background: none;
-  border: none;
-  border-radius: 6px 6px 0 0;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.15s, background 0.15s;
-}
-.tab-btn:hover {
-  background: #f1f1ef;
-}
-.tab-btn.active {
-  color: #37352f;
-}
-.tab-btn.active:hover {
-  background: transparent;
-}
-
-.tab-separator {
-  width: 1px;
-  height: 20px;
-  background: #e9e9e7;
-  margin: 0 4px;
-  flex-shrink: 0;
-}
-.tab-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 18px;
-  color: #9b9a97;
-  transition: color 0.15s, background 0.15s;
-  flex-shrink: 0;
-}
-.tab-add-btn:hover {
-  background: #f1f1ef;
-  color: #37352f;
-}
-
-.tab-clock-icon {
-  display: flex;
-  align-items: center;
-}
-
-.tab-indicator {
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #37352f;
-  border-radius: 1px;
-}
-
-/* ── Sections ── */
-.sections {
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-}
-
+.group-section { margin-bottom: 40px; }
 .group-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
 }
-
-.group-header-left {
-  display: flex;
+.group-header-left { display: flex; align-items: center; gap: 10px; }
+.folder-icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: #f7f7f5;
+  cursor: pointer;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
 }
-
+.folder-icon-btn:hover { background: #e9e9e7; }
 .group-section-name {
   font-size: 18px;
   font-weight: 600;
-  color: #37352f;
   margin: 0;
 }
-
 .group-section-count {
   font-size: 13px;
   color: #787774;
@@ -816,73 +494,25 @@ watch(showRenameTable, (v) => {
   padding: 2px 10px;
   border-radius: 12px;
 }
-
-.group-empty {
-  font-size: 13px;
-  color: #9b9a97;
-  padding: 8px 2px 4px;
-}
-
-.group-settings-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #9b9a97;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
-}
-
-.group-section-header:hover .group-settings-btn {
-  opacity: 1;
-}
-
-.group-settings-btn:hover {
-  background: #efefed;
-  color: #37352f;
-}
-
-/* ── Card grid ── */
+.group-empty { font-size: 13px; color: #9b9a97; }
 .table-cards {
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
 }
 @media (min-width: 640px) {
-  .table-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  .table-cards { grid-template-columns: repeat(2, 1fr); }
 }
-
 .table-card {
-  position: relative;
   display: flex;
   align-items: center;
   padding: 14px 16px;
-  background: #fff;
   border: 1px solid #e9e9e7;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
-.table-card:hover {
-  background: #f9f9f8;
-}
-
-.card-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  overflow: hidden;
-  min-width: 0;
-}
-
+.table-card:hover { background: #f9f9f8; }
+.card-left { display: flex; align-items: center; gap: 14px; min-width: 0; overflow: hidden; }
 .card-icon {
   width: 40px;
   height: 40px;
@@ -892,210 +522,38 @@ watch(showRenameTable, (v) => {
   justify-content: center;
   background: #f7f7f5;
   border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s;
 }
-.card-icon:hover {
-  background: #e9e9e7;
-}
-
-.card-icon-emoji {
-  font-size: 20px;
-  line-height: 1;
-}
-
-.card-info {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
+.card-icon:hover { background: #e9e9e7; }
+.card-icon-emoji { font-size: 20px; line-height: 1; }
+.card-info { min-width: 0; overflow: hidden; }
 .card-title {
   font-size: 14px;
   font-weight: 600;
-  color: #37352f;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.card-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-.card-id {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #f1f1ef;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-  color: #787774;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-.card-id:hover {
-  background: #e9e9e7;
-}
-
-.card-copy-icon {
-  display: inline-flex;
-  align-items: center;
-  color: #787774;
-  transition: color 0.12s;
-}
-.card-id:hover .card-copy-icon {
-  color: #37352f;
-}
-
-.card-count {
-  font-size: 12px;
-  color: #787774;
-}
-
-.card-last-access {
-  font-size: 11px;
-  color: #9b9a97;
-}
-
-.card-menu-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #9b9a97;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
-}
-
-.table-card:hover .card-menu-btn,
-.card-menu-btn:focus-visible {
-  opacity: 1;
-}
-
-.card-menu-btn:hover,
-.card-menu-btn:focus-visible {
-  background: #efefed;
-  color: #37352f;
-  outline: none;
-}
-
-/* ── Empty state ── */
-.empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  color: #787774;
-}
-.empty-icon-big {
-  font-size: 40px;
-  margin-bottom: 16px;
-}
-.empty-text {
-  font-size: 15px;
-  color: #787774;
-  margin: 0;
-}
-
-/* ── New Group modal ── */
-.ng-form {
-  display: flex;
-  flex-direction: column;
-}
-.rename-form {
-  display: flex;
-  flex-direction: column;
-}
-.ng-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #37352f;
-  margin-bottom: 6px;
-}
-.ng-hint {
-  font-size: 12px;
-  color: #9b9a97;
-  margin-bottom: 8px;
-  text-align: right;
-  margin-top: -20px;
-}
+.card-meta { display: flex; gap: 8px; margin-top: 4px; }
+.card-kind, .card-last-access { font-size: 12px; color: #787774; }
+.empty-state { text-align: center; padding: 80px 20px; color: #787774; }
+.empty-icon-big { font-size: 40px; margin-bottom: 16px; }
+.rename-form { display: flex; flex-direction: column; gap: 16px; }
 .ng-input {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #e9e9e7;
   border-radius: 6px;
   font-size: 14px;
-  outline: none;
   box-sizing: border-box;
-  color: #37352f;
 }
-.ng-input:focus { border-color: #2383e2; box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.2); }
-.ng-table-list {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid #e9e9e7;
-  border-radius: 6px;
-}
-.ng-table-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: background 0.1s;
-  font-size: 14px;
-  color: #37352f;
-}
-.ng-table-item:hover { background: #f7f7f5; }
-.ng-checkbox {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  accent-color: #2383e2;
-  cursor: pointer;
-}
-.ng-table-icon { font-size: 16px; flex-shrink: 0; }
-.ng-table-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ng-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
-}
-.rename-meta {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #787774;
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-}
+.ng-footer { display: flex; justify-content: flex-end; gap: 8px; }
 .ng-btn {
-  padding: 8px 20px;
   border: 1px solid #e9e9e7;
-  border-radius: 6px;
   background: #fff;
-  font-size: 14px;
-  color: #37352f;
+  border-radius: 6px;
+  padding: 6px 12px;
   cursor: pointer;
-  transition: all 0.15s;
 }
-.ng-btn:hover { background: #f7f7f5; }
-.ng-btn.primary { background: #2383e2; color: #fff; border-color: #2383e2; }
-.ng-btn.primary:hover { background: #1b6ec2; }
-.ng-btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.ng-btn.danger { color: #e03e3e; border-color: #e03e3e; }
-.ng-btn.danger:hover { background: #fef0f0; }
+.ng-btn.primary { background: #37352f; color: #fff; border-color: #37352f; }
+.ng-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

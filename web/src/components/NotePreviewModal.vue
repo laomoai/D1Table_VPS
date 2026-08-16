@@ -27,7 +27,7 @@
         </div>
 
         <!-- Title -->
-        <div v-if="note" class="note-preview-title">{{ note.title || 'Untitled' }}</div>
+        <div v-if="note" class="note-preview-title">{{ note.title || '未命名' }}</div>
 
         <!-- Loading -->
         <div v-if="isLoading" class="note-preview-loading">

@@ -69,7 +69,7 @@ export function useNoteTree() {
   /** Get note title by ID (from cached tree data, no extra API call) */
   function getNoteTitle(noteId: string): string {
     const note = (treeData.value ?? []).find(n => n.id === noteId)
-    return note?.title || 'Untitled'
+    return note?.title || '未命名'
   }
 
   return {

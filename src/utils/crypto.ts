@@ -7,13 +7,12 @@ export async function sha256(text: string): Promise<string> {
     .join('')
 }
 
-/** 生成随机 API Key，格式：d1t_ro_<32位随机> 或 d1t_rw_<32位随机> */
-export function generateApiKey(type: 'readonly' | 'readwrite'): string {
-  const prefix = type === 'readonly' ? 'd1t_ro_' : 'd1t_rw_'
+/** 生成随机 API Key：mw_ + 32 位随机 */
+export function generateApiKey(_type: 'readonly' | 'readwrite'): string {
   const random = crypto.getRandomValues(new Uint8Array(24))
   const chars = [...random]
     .map((b) => b.toString(36).padStart(2, '0'))
     .join('')
     .slice(0, 32)
-  return prefix + chars
+  return `mw_${chars}`
 }

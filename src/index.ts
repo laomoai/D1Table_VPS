@@ -106,26 +106,13 @@ function openApiSpec(serverUrl: string) {
     info: {
       title: '墨问 MoWen API',
       version: '2.1.0',
-      description: `墨问（MoWen）API：表格、笔记与工作区。Ubuntu + SQLite。供 AI Agent 使用。
+      description: `墨问 HTTP API。鉴权：\`X-API-Key\`。
 
-**Authentication:** send \`X-API-Key\` on API calls. The web UI uses an email/password session cookie instead. There is no Google OAuth.
+表格用 \`name\`（如 tbl_abc123），显示名是 \`title\`；写记录用字段 \`column_name\`。
+文件夹权限：\`scope=groups\` 的 Key 可访问所选文件夹里的表格和笔记。工作区树见 \`/api/workspace/*\`。
+分页用游标 \`cursor\` / \`next_cursor\`。时间是 UTC ISO 8601。
 
-**Groups vs folders (important for scoped keys):**
-- Sidebar **folders** are 1:1 with **groups**. \`group_id\` is the folder's group.
-- \`scope=groups\` keys may use the tables **and notes** inside the selected folders (including nested folders). \`group_id\` is the folder's group.
-- \`notes_scope\` applies only when \`scope=all\` (all / none / selected note roots). A groups-scoped key does not use a separate "no notes" switch.
-- Agents still identify tables by name and folders/groups by \`group_id\`. Use \`/api/workspace/*\` for sidebar layout.
-
-**Other conventions:**
-- Pagination is cursor-based (keyset): pass the previous page's \`next_cursor\` as \`cursor\`
-- Datetime fields are ISO 8601 UTC, e.g. \`2026-03-15T04:37:31.000Z\`
-- Tables have an API name (\`name\`, e.g. tbl_abc123) and a display name (\`title\`)
-- Use field \`column_name\` in API requests; responses include display-name mapping
-- Images: POST /api/upload/image, then store the returned paths on the record
-
-**Agent packages (no extra coding):**
-- Skill: \`/agent/mowen/SKILL.md\` + \`/agent/mowen/scripts/mowen.py\`
-- MCP stdio: \`/agent/mowen/mcp/server.mjs\` (env \`MOWEN_URL\`, \`MOWEN_KEY\`)`,
+Skill：\`/agent/mowen/SKILL.md\``,
     },
     servers: [{ url: serverUrl }],
     security: [{ ApiKeyAuth: [] }],

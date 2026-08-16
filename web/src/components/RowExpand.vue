@@ -308,7 +308,7 @@
         <input
           v-model="linkPickerSearch"
           class="np-input"
-          :placeholder="linkPickerTable === '_notes' ? 'Search notes...' : 'Search records...'"
+          :placeholder="linkPickerTable === '_notes' ? '搜索笔记…' : '搜索记录…'"
           @input="linkPickerTable !== '_notes' && debouncedSearchLinks()"
         />
       </div>
@@ -322,7 +322,7 @@
             :key="item.note.id"
             class="np-item"
             :style="{ paddingLeft: `${10 + item.depth * 20}px` }"
-            @click="pickLink({ id: item.note.id, title: item.note.title || 'Untitled' })"
+            @click="pickLink({ id: item.note.id, title: item.note.title || '未命名' })"
           >
             <span
               v-if="item.hasChildren"
@@ -335,7 +335,7 @@
               <IonIcon v-if="item.note.icon?.startsWith('ion:')" :name="item.note.icon.slice(4)" :size="14" />
               <IonIcon v-else :name="item.hasChildren ? 'FolderOutline' : 'DocumentOutline'" :size="14" />
             </span>
-            <span class="np-name">{{ item.note.title || 'Untitled' }}</span>
+            <span class="np-name">{{ item.note.title || '未命名' }}</span>
           </div>
         </template>
         <!-- Regular tables: flat list -->
@@ -388,7 +388,7 @@
             <IonIcon v-if="item.note.icon?.startsWith('ion:')" :name="item.note.icon.slice(4)" :size="14" />
             <IonIcon v-else :name="item.hasChildren ? 'FolderOutline' : 'DocumentOutline'" :size="14" />
           </span>
-          <span class="np-name">{{ item.note.title || 'Untitled' }}</span>
+          <span class="np-name">{{ item.note.title || '未命名' }}</span>
         </div>
       </div>
     </div>
@@ -810,7 +810,7 @@ function openNotePicker(columnName: string) {
 function pickNote(noteId: string) {
   if (notePickerField.value) {
     const note = (allNotes.value ?? []).find(n => n.id === noteId)
-    saveField(notePickerField.value, encodeNoteValue(noteId, note?.title || 'Untitled', note?.icon || ''))
+    saveField(notePickerField.value, encodeNoteValue(noteId, note?.title || '未命名', note?.icon || ''))
   }
   showNotePicker.value = false
 }

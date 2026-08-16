@@ -1,5 +1,6 @@
 <template>
   <div style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+    <ArchiveBackBar />
     <n-spin v-if="fieldsLoading" style="padding: 60px;" />
     <n-result
       v-else-if="fieldsError"
@@ -60,6 +61,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { NSpin, NResult } from 'naive-ui'
 import { api } from '@/api/client'
+import ArchiveBackBar from '@/components/ArchiveBackBar.vue'
+import { trackRecentAccess } from '@/utils/recentAccess'
 import DataGrid from '@/components/DataGrid.vue'
 import GalleryView from '@/components/GalleryView.vue'
 import ChartView from '@/components/ChartView.vue'
@@ -98,7 +101,10 @@ function clearHighlight() {
 }
 
 // 切换表时恢复该表上次的视图
-watch(tableName, (newTable) => { viewMode.value = getStoredViewMode(newTable) })
+watch(tableName, (newTable) => {
+  viewMode.value = getStoredViewMode(newTable)
+  trackRecentAccess('table', newTable)
+}, { immediate: true })
 
 function switchView(v: string) {
   const mode = v as ViewMode
@@ -146,12 +152,13 @@ const isTableLocked = computed(() =>
 watch([tableTitle, tableIcon, tableName], ([title, icon, name]) => {
   const display = title || name
   const prefix = icon && !icon.startsWith('ion:') ? icon + ' ' : ''
-  document.title = `${prefix}${display} - D1Table`
+  document.title = `${prefix}${display} - 墨问`
 }, { immediate: true })
 
-onUnmounted(() => { document.title = 'D1Table' })
+onUnmounted(() => { document.title = '墨问' })
 
 function refetchTables() {
   queryClient.invalidateQueries({ queryKey: ['tables'] })
+  queryClient.invalidateQueries({ queryKey: ['workspace'] })
 }
 </script>

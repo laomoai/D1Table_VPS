@@ -144,6 +144,39 @@ auth.post('/login', async (c) => {
   })
 })
 
+auth.post('/change-password', async (c) => {
+  const cookieHeader = c.req.header('Cookie') ?? ''
+  const session = await verifySession(cookieHeader, c.env.SESSION_SECRET)
+  if (!session) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: '请先登录' } }, 401)
+  }
+
+  const body = await c.req.json<{ current_password?: string; new_password?: string }>().catch(() => ({}))
+  const currentPassword = body.current_password ?? ''
+  const newPassword = body.new_password ?? ''
+  if (!currentPassword || newPassword.length < 8) {
+    return c.json({ error: { code: 'INVALID_BODY', message: '请填写当前密码，新密码至少 8 位' } }, 400)
+  }
+  if (currentPassword === newPassword) {
+    return c.json({ error: { code: 'INVALID_BODY', message: '新密码不能和当前密码相同' } }, 400)
+  }
+
+  const row = await c.env.DB.prepare(
+    `SELECT id, password_hash FROM _users WHERE email = ? AND status = 'active' LIMIT 1`,
+  ).bind(session.email).first<{ id: number; password_hash: string | null }>()
+  if (!row?.password_hash) {
+    return c.json({ error: { code: 'INVALID_BODY', message: '账号无法修改密码' } }, 400)
+  }
+  const ok = await verifyPassword(currentPassword, row.password_hash)
+  if (!ok) {
+    return c.json({ error: { code: 'INVALID_BODY', message: '当前密码不正确' } }, 400)
+  }
+
+  const passwordHash = await hashPassword(newPassword)
+  await c.env.DB.prepare(`UPDATE _users SET password_hash = ? WHERE id = ?`).bind(passwordHash, row.id).run()
+  return c.json({ data: { success: true } })
+})
+
 auth.post('/forgot-password', async (c) => {
   const body = await c.req.json<{ email?: string }>().catch(() => ({}))
   const email = body.email?.trim().toLowerCase() ?? ''
@@ -188,7 +221,7 @@ auth.post('/reset-password', async (c) => {
   ).bind(token).first<{ id: number; user_id: number; expires_at: number; used_at: number | null }>()
 
   if (!row || row.used_at || row.expires_at < now) {
-    return c.json({ error: { code: 'INVALID_TOKEN', message: 'Reset link is invalid or expired' } }, 400)
+    return c.json({ error: { code: 'INVALID_TOKEN', message: '链接无效或已过期，请让对方重发邀请' } }, 400)
   }
 
   const passwordHash = await hashPassword(password)
@@ -258,6 +291,9 @@ auth.get('/me', async (c) => {
 })
 
 export async function sendInviteEmail(env: Env, userId: number, email: string): Promise<void> {
+  if (!env.RESEND_API_KEY) {
+    throw new Error('邮件未配置，无法发送邀请')
+  }
   const token = generateToken()
   const expires = Math.floor(Date.now() / 1000) + 7 * 86400
   await env.DB.prepare(

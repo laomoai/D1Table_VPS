@@ -37,7 +37,7 @@ async function nextSort(db: SqliteDatabase, teamId: number | undefined, parentId
 
 export async function getNode(db: SqliteDatabase, id: string): Promise<WorkspaceNode | null> {
   return db.prepare(
-    `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, NULL as icon, archived_at
+    `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, icon, archived_at
      FROM _workspace_nodes WHERE id = ?`,
   ).bind(id).first<WorkspaceNode>()
 }
@@ -219,6 +219,39 @@ export async function renameFolder(db: SqliteDatabase, id: string, title: string
       ? [db.prepare(`UPDATE _groups SET name = ? WHERE id = ?`).bind(name, node.group_id)]
       : []),
   ])
+}
+
+function normalizeIcon(icon: string | null): string | null {
+  if (icon === null || icon === '') return null
+  if (icon.startsWith('ion:')) {
+    if (icon.length <= 4) {
+      throw Object.assign(new Error('Invalid icon'), { status: 400, code: 'INVALID_BODY' })
+    }
+    return icon
+  }
+  if (icon.length > 20) {
+    throw Object.assign(new Error('Icon is too long'), { status: 400, code: 'INVALID_BODY' })
+  }
+  return icon
+}
+
+export async function updateFolderIcon(
+  db: SqliteDatabase,
+  id: string,
+  icon: string | null,
+  teamId?: number,
+): Promise<void> {
+  const node = await getNode(db, id)
+  if (!node || node.kind !== 'folder') {
+    throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
+  }
+  if (teamId !== undefined && node.team_id !== teamId) {
+    throw Object.assign(new Error('Folder not found'), { status: 404, code: 'NOT_FOUND' })
+  }
+  const value = normalizeIcon(icon)
+  await db.prepare(
+    `UPDATE _workspace_nodes SET icon = ?, updated_at = unixepoch() WHERE id = ?`,
+  ).bind(value, id).run()
 }
 
 export async function deleteEmptyFolder(db: SqliteDatabase, id: string, teamId?: number): Promise<void> {
@@ -438,7 +471,7 @@ export async function listWorkspaceNodes(
               CASE
                 WHEN n.kind = 'table' THEN (SELECT icon FROM _meta WHERE table_name = n.ref)
                 WHEN n.kind = 'note' THEN (SELECT icon FROM _notes WHERE id = n.ref)
-                ELSE NULL
+                ELSE n.icon
               END AS icon,
               n.archived_at
        FROM _workspace_nodes n
@@ -454,7 +487,7 @@ export async function listWorkspaceNodes(
               CASE
                 WHEN n.kind = 'table' THEN (SELECT icon FROM _meta WHERE table_name = n.ref)
                 WHEN n.kind = 'note' THEN (SELECT icon FROM _notes WHERE id = n.ref)
-                ELSE NULL
+                ELSE n.icon
               END AS icon,
               n.archived_at
        FROM _workspace_nodes n
@@ -494,9 +527,9 @@ function excludeArchivedCabinets(nodes: WorkspaceNode[]): WorkspaceNode[] {
 
 async function loadTeamNodes(db: SqliteDatabase, teamId: number | undefined): Promise<WorkspaceNode[]> {
   const sql = teamId !== undefined
-    ? `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, NULL as icon, archived_at
+    ? `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, icon, archived_at
        FROM _workspace_nodes WHERE team_id = ?`
-    : `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, NULL as icon, archived_at
+    : `SELECT id, kind, parent_id, sort_order, title, ref, group_id, team_id, icon, archived_at
        FROM _workspace_nodes`
   const result = teamId !== undefined
     ? await db.prepare(sql).bind(teamId).all<WorkspaceNode>()

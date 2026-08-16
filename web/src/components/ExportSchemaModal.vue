@@ -57,7 +57,7 @@
       <template v-if="groupedData.ungrouped.length">
         <div v-if="groupedData.withGroup.length" class="separator" />
         <div class="group-block">
-          <div class="no-group-label">未分组</div>
+          <div class="no-group-label">未放入文件夹</div>
           <label
             v-for="t in groupedData.ungrouped"
             :key="t.name"

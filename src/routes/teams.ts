@@ -107,12 +107,46 @@ teams.post('/current/members', requireWriteMiddleware, async (c) => {
     return c.json({ error: { code: 'USER_EXISTS', message: `User "${email}" already belongs to another space` } }, 409)
   }
 
-  // 用户不存在，预创建账号
   const result = await c.env.DB.prepare(
     `INSERT INTO _users (email, name, role, status, team_id) VALUES (?, ?, 'user', 'active', ?)`
   ).bind(email, email, teamId).run()
 
-  return c.json({ data: { id: result.meta.last_row_id, email, message: 'User account created and added to space' } }, 201)
+  const newId = Number(result.meta.last_row_id)
+  try {
+    const { sendInviteEmail } = await import('./auth')
+    await sendInviteEmail(c.env, newId, email)
+  } catch (err) {
+    return c.json({
+      data: { id: newId, email, mail_sent: false },
+      error: { code: 'MAIL_FAILED', message: (err as Error).message || '邀请邮件发送失败' },
+    }, 201)
+  }
+
+  return c.json({ data: { id: newId, email, mail_sent: true } }, 201)
+})
+
+teams.post('/current/members/:userId/invite', requireWriteMiddleware, async (c) => {
+  const teamId = c.get('teamId')
+  if (!teamId) {
+    return c.json({ error: { code: 'NO_TEAM', message: '没有团队' } }, 400)
+  }
+  const ownerErr = await requireOwner(c, teamId)
+  if (ownerErr) return ownerErr
+
+  const userId = parseInt(c.req.param('userId'), 10)
+  const member = await c.env.DB.prepare(
+    `SELECT id, email FROM _users WHERE id = ? AND team_id = ?`,
+  ).bind(userId, teamId).first<{ id: number; email: string }>()
+  if (!member) {
+    return c.json({ error: { code: 'NOT_FOUND', message: '找不到这位成员' } }, 404)
+  }
+  try {
+    const { sendInviteEmail } = await import('./auth')
+    await sendInviteEmail(c.env, member.id, member.email)
+  } catch (err) {
+    return c.json({ error: { code: 'MAIL_FAILED', message: (err as Error).message || '邀请邮件发送失败' } }, 502)
+  }
+  return c.json({ data: { success: true } })
 })
 
 /**
@@ -153,7 +187,11 @@ teams.delete('/current/members/:userId', requireWriteMiddleware, async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'User not found in this team' } }, 404)
   }
 
-  await hardDeleteMember(c.env.DB, targetId)
+  try {
+    await hardDeleteMember(c.env.DB, targetId)
+  } catch (err) {
+    return c.json({ error: { code: 'DELETE_FAILED', message: (err as Error).message || '移除成员失败' } }, 500)
+  }
 
   return c.json({ data: { success: true } })
 })

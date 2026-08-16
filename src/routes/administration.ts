@@ -239,7 +239,11 @@ administration.delete('/spaces/:id/members/:userId', async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'User not found in this space' } }, 404)
   }
 
-  await hardDeleteMember(c.env.DB, targetId)
+  try {
+    await hardDeleteMember(c.env.DB, targetId)
+  } catch (err) {
+    return c.json({ error: { code: 'DELETE_FAILED', message: (err as Error).message || '移除成员失败' } }, 500)
+  }
 
   return c.json({ data: { success: true } })
 })

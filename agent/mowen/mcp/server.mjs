@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 墨问 MCP (stdio). Env: MOWEN_URL + MOWEN_KEY（兼容 D1TABLE_*）
+ * 墨问 MCP (stdio)。环境变量：MOWEN_URL、MOWEN_KEY。
  * Cursor / Claude Desktop 用 stdio 启动本文件。这是本地进程，不是在浏览器里打开。
  */
 import { createInterface } from "node:readline";

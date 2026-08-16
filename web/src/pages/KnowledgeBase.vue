@@ -4,7 +4,7 @@
       <div class="kb-header">
         <div>
           <h1 class="kb-title">归档</h1>
-          <p class="kb-desc">按文件夹整柜收起。里面的表格和笔记只读，需要时再恢复到侧栏。</p>
+          <p class="kb-desc">归档的文件夹只读，恢复后回到侧栏。</p>
         </div>
       </div>
 

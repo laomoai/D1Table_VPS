@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""墨问 CLI — stdlib only. Auth: MOWEN_URL + MOWEN_KEY（兼容 D1TABLE_*）。"""
+"""墨问 CLI。环境变量：MOWEN_URL、MOWEN_KEY。"""
 from __future__ import annotations
 
 import argparse

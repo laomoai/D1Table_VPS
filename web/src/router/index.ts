@@ -60,7 +60,8 @@ router.beforeEach(async (to) => {
     authChecked = true
   }
   if (!authState.authed && !to.meta.guest) return '/login'
-  if (authState.authed && (to.path === '/login' || to.path === '/reset-password')) return '/'
+  if (authState.authed && to.path === '/login') return '/'
+  if (authState.authed && to.path === '/reset-password' && !to.query.token) return '/'
   if (to.meta.admin && authState.user?.role !== 'admin') return '/'
 })
 

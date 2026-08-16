@@ -5,6 +5,27 @@
     </div>
 
     <n-tabs type="line" animated>
+      <n-tab-pane name="account" tab="账号">
+        <div class="tab-content">
+          <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 12px;">修改密码</div>
+          <div class="rename-form" style="max-width: 360px;">
+            <label class="hint" style="display:block;margin-bottom:6px;">当前密码</label>
+            <n-input v-model:value="pwdCurrent" type="password" show-password-on="click" />
+            <label class="hint" style="display:block;margin:12px 0 6px;">新密码（至少 8 位）</label>
+            <n-input v-model:value="pwdNew" type="password" show-password-on="click" />
+            <label class="hint" style="display:block;margin:12px 0 6px;">再输入一次新密码</label>
+            <n-input v-model:value="pwdNew2" type="password" show-password-on="click" @keyup.enter="handleChangePassword" />
+            <n-button
+              type="primary"
+              size="small"
+              style="margin-top: 16px;"
+              :loading="changingPassword"
+              @click="handleChangePassword"
+            >保存新密码</n-button>
+          </div>
+        </div>
+      </n-tab-pane>
+
       <!-- ─── Tab: API Keys ──────────────────────────────── -->
       <n-tab-pane name="keys" tab="API 密钥">
         <div class="tab-content">
@@ -19,7 +40,7 @@
                     as="div"
                   />
                   <div class="key-card-meta">
-                    <code class="key-prefix">{{ k.key_prefix }}...</code>
+                    <code class="key-prefix" :title="k.key_plain ? '点击复制密钥' : ''" @click="copyPlainKey(k)">{{ maskKey(k) }}</code>
                     <n-tag :type="k.type === 'readonly' ? 'info' : 'warning'" size="tiny">
                       {{ k.type === 'readonly' ? '只读' : '读写' }}
                     </n-tag>
@@ -31,6 +52,14 @@
                     <span class="key-last-used">{{ k.last_used_at ? '上次使用 ' + formatRelativeTime(k.last_used_at) : '从未使用' }}</span>
                   </div>
                 </div>
+                <n-button
+                  v-if="k.is_active && k.key_plain"
+                  size="tiny"
+                  quaternary
+                  @click="copyText(skillInstallText(k.key_plain), '已复制安装语句')"
+                >
+                  复制安装 Skill
+                </n-button>
                 <n-button
                   v-if="k.is_active"
                   size="tiny"
@@ -72,31 +101,7 @@
             <div class="hint" style="margin-top: 8px;">AI Agent 可读这份文档，自动发现可用接口</div>
           </div>
 
-          <div class="section" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f0f0f0;">
-            <div class="section-label">给 Agent 用（Skill / MCP）</div>
-            <div class="hint" style="margin-top: 8px;">
-              密钥用上面创建的 API Key。Skill 给 Grok / Claude / Codex；MCP 给 Cursor / Claude Desktop（本机跑 Node 进程，不是在浏览器打开脚本）。
-            </div>
-
-            <div class="agent-block">
-              <div class="agent-block-head">
-                <span>安装 Skill</span>
-                <n-button size="tiny" quaternary @click="copyText(skillInstallSnippet, 'Skill 安装命令已复制')">复制</n-button>
-              </div>
-              <pre class="agent-snippet">{{ skillInstallSnippet }}</pre>
-            </div>
-
-            <div class="agent-block">
-              <div class="agent-block-head">
-                <span>MCP 配置（先下载 server.mjs 到本机）</span>
-                <div style="display:flex;gap:6px;">
-                  <n-button tag="a" href="/agent/mowen/mcp/server.mjs" download="mowen-mcp.mjs" size="tiny" quaternary>下载 server.mjs</n-button>
-                  <n-button size="tiny" quaternary @click="copyText(mcpConfigSnippet, 'MCP 配置已复制')">复制</n-button>
-                </div>
-              </div>
-              <pre class="agent-snippet">{{ mcpConfigSnippet }}</pre>
-            </div>
-          </div>
+          <div class="hint" style="margin-top: 16px;">在密钥上可复制安装 Skill，中间打码，复制的是完整语句。</div>
         </div>
       </n-tab-pane>
 
@@ -184,7 +189,7 @@
                             <IonIcon v-else name="DocumentOutline" :size="14" />
                           </span>
                           <HoverTooltipText
-                            :text="item.title || 'Untitled'"
+                            :text="item.title || '未命名'"
                             class-name="trash-card-table"
                           />
                         </div>
@@ -259,7 +264,7 @@
       <n-tab-pane name="team" tab="团队">
         <div class="tab-content">
           <div class="hint" style="margin-bottom: 16px;">
-            Team members share the same tables, groups, notes and trash.
+            团队成员共用同一套工作区。
           </div>
 
           <n-spin :show="teamLoading">
@@ -293,13 +298,14 @@
                 <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">添加成员</div>
                 <div style="display: flex; gap: 8px;">
                   <n-input v-model:value="newMemberEmail" size="small" placeholder="邮箱地址" style="width: 260px;" @keyup.enter="handleAddMember" />
-                  <n-button size="small" type="primary" :loading="addingMember" @click="handleAddMember">添加</n-button>
+                  <n-button size="small" type="primary" :loading="addingMember" @click="handleAddMember">邀请</n-button>
                 </div>
+                <p class="hint">不会生成密码。我们发一封邮件，对方点链接自己设密码，7 天内有效。</p>
               </div>
 
               <!-- Members list -->
               <div class="section">
-                <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">Members ({{ teamData.members.length }})</div>
+                <div class="section-title" style="font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px;">成员（{{ teamData.members.length }}）</div>
                 <div class="user-list">
                   <div v-for="m in teamData.members" :key="m.id" class="user-row">
                     <img :src="avatarUrl(m.picture, m.email)" class="user-avatar" referrerpolicy="no-referrer" />
@@ -310,6 +316,12 @@
                     <span class="user-last-login">{{ formatLastLogin(m.last_login) }}</span>
                     <n-tag v-if="m.id === teamData.created_by" size="small" type="warning">所有者</n-tag>
                     <div v-if="isOwner && m.id !== teamData.created_by" class="user-actions">
+                      <n-button
+                        size="tiny"
+                        quaternary
+                        :loading="resendingMember === m.id"
+                        @click="handleResendInvite(m.id)"
+                      >重发邀请</n-button>
                       <n-button
                         size="tiny"
                         quaternary
@@ -394,15 +406,15 @@
           </n-space>
         </n-radio-group>
       </n-form-item>
-      <n-form-item v-if="newKey.scope === 'groups'" label="文件夹">
-        <template v-if="groupList?.length">
+      <n-form-item v-if="newKey.scope === 'groups'" label="文件夹" class="folder-form-item">
+        <div v-if="groupList?.length" class="folder-pick">
           <n-checkbox-group v-model:value="newKey.group_ids">
             <n-space>
               <n-checkbox v-for="g in groupList" :key="g.id" :value="g.id" :label="g.name" />
             </n-space>
           </n-checkbox-group>
-          <p class="hint" style="margin-top: 8px;">包含这些文件夹及其子文件夹里的表格和笔记。</p>
-        </template>
+          <p class="folder-pick-hint">包含这些文件夹及其子文件夹里的表格和笔记。</p>
+        </div>
         <span v-else class="hint">还没有文件夹，请先在侧栏创建一个</span>
       </n-form-item>
     </n-form>
@@ -415,14 +427,21 @@
   </n-modal>
 
   <!-- New Key display modal -->
-  <n-modal v-model:show="showNewKey" preset="card" style="width: 480px;" title="请保存你的 API 密钥">
+  <n-modal v-model:show="showNewKey" preset="card" style="width: 560px;" title="请保存你的 API 密钥">
     <n-alert type="warning" style="margin-bottom: 12px;">
-      This key is shown only once — you won't be able to view it again after closing!
+      关闭后仍可在列表里复制安装语句。列表中密钥中间会打码。
     </n-alert>
     <n-input :value="newKeyValue" readonly type="text" />
+    <div class="agent-block">
+      <div class="agent-block-head">
+        <span>安装 Skill</span>
+        <n-button size="tiny" quaternary @click="copyText(filledSkillSnippet, '已复制')">复制</n-button>
+      </div>
+      <pre class="agent-snippet">{{ filledSkillSnippet }}</pre>
+    </div>
     <template #footer>
       <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <n-button @click="copyKey">复制</n-button>
+        <n-button @click="copyKey">复制密钥</n-button>
         <n-button type="primary" @click="showNewKey = false">我已保存</n-button>
       </div>
     </template>
@@ -445,7 +464,7 @@ import {
   NSpin, NModal, NAlert, NRadioGroup, NRadio, NCheckboxGroup, NCheckbox,
   NSlider, NPagination, useMessage, useDialog,
 } from 'naive-ui'
-import { api, notesApi, teamApi, getCurrentUser, avatarUrl, type ApiKeyInfo, type TableMeta, type TrashItem, type TeamDetail } from '@/api/client'
+import { api, notesApi, teamApi, getCurrentUser, changePassword, avatarUrl, type ApiKeyInfo, type TableMeta, type TrashItem, type TeamDetail } from '@/api/client'
 import ExportSchemaModal from '@/components/ExportSchemaModal.vue'
 import HoverTooltipText from '@/components/HoverTooltipText.vue'
 import IonIcon from '@/components/IonIcon.vue'
@@ -469,6 +488,33 @@ const showExportSchema = ref(false)
 const showNewKey = ref(false)
 const newKeyValue = ref('')
 const creating = ref(false)
+const pwdCurrent = ref('')
+const pwdNew = ref('')
+const pwdNew2 = ref('')
+const changingPassword = ref(false)
+
+async function handleChangePassword() {
+  if (!pwdCurrent.value || pwdNew.value.length < 8) {
+    message.warning('请填写当前密码，新密码至少 8 位')
+    return
+  }
+  if (pwdNew.value !== pwdNew2.value) {
+    message.warning('两次输入的新密码不一致')
+    return
+  }
+  changingPassword.value = true
+  try {
+    await changePassword(pwdCurrent.value, pwdNew.value)
+    pwdCurrent.value = ''
+    pwdNew.value = ''
+    pwdNew2.value = ''
+    message.success('密码已更新')
+  } catch (err) {
+    message.error((err as Error).message)
+  } finally {
+    changingPassword.value = false
+  }
+}
 const exportingNotesBundle = ref(false)
 const exportingTablesBundle = ref(false)
 const newKey = ref({
@@ -519,9 +565,9 @@ function formatRelativeTime(ts: number): string {
   const now = Math.floor(Date.now() / 1000)
   const diff = now - ts
   if (diff < 60) return '刚刚'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`
+  if (diff < 604800) return `${Math.floor(diff / 86400)} 天前`
   const d = new Date(ts * 1000)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -539,7 +585,7 @@ async function handleRevoke(id: number) {
 function handleDeleteKey(id: number, name: string) {
   dialog.warning({
     title: '删除 API 密钥',
-    content: `Permanently delete the revoked key "${name}"? This cannot be undone.`,
+    content: `彻底删除已撤销的密钥「${name}」？此操作无法恢复。`,
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {
@@ -559,24 +605,26 @@ function copyKey() {
   message.success('已复制到剪贴板')
 }
 
-const skillInstallSnippet = `mkdir -p ~/.grok/skills/mowen/scripts
-curl -fsSL https://mowen.lemoai.cn/agent/mowen/SKILL.md -o ~/.grok/skills/mowen/SKILL.md
-curl -fsSL https://mowen.lemoai.cn/agent/mowen/scripts/mowen.py -o ~/.grok/skills/mowen/scripts/mowen.py
-export MOWEN_URL=https://mowen.lemoai.cn
-export MOWEN_KEY='你的密钥'`
+function skillInstallText(key: string) {
+  return `请根据 https://mowen.lemoai.cn/agent/mowen/SKILL.md 安装墨问，环境变量 MOWEN_KEY=${key}`
+}
 
-const mcpConfigSnippet = `{
-  "mcpServers": {
-    "mowen": {
-      "command": "node",
-      "args": ["/本机路径/mowen-mcp.mjs"],
-      "env": {
-        "MOWEN_URL": "https://mowen.lemoai.cn",
-        "MOWEN_KEY": "你的密钥"
-      }
-    }
+const filledSkillSnippet = computed(() => skillInstallText(newKeyValue.value || '你的密钥'))
+
+function maskKey(k: ApiKeyInfo) {
+  const plain = k.key_plain
+  if (plain && plain.length > 12) return `${plain.slice(0, 7)}***${plain.slice(-4)}`
+  return `${k.key_prefix}***`
+}
+
+function copyPlainKey(k: ApiKeyInfo) {
+  if (!k.key_plain) {
+    message.warning('这把旧密钥没有完整值，请新建一把')
+    return
   }
-}`
+  navigator.clipboard.writeText(k.key_plain)
+  message.success('密钥已复制')
+}
 
 function copyText(text: string, ok: string) {
   navigator.clipboard.writeText(text)
@@ -644,7 +692,7 @@ async function handleExportNotesBundle() {
       count: fullNotes.length,
       notes: fullNotes,
     })
-    message.success(`Exported ${fullNotes.length} notes`)
+    message.success(`已导出 ${fullNotes.length} 篇笔记`)
   } catch (err) {
     message.error((err as Error).message)
   } finally {
@@ -691,7 +739,7 @@ async function handleExportTablesBundle() {
       count: tablePayloads.length,
       tables: tablePayloads,
     })
-    message.success(`Exported ${tablePayloads.length} tables`)
+    message.success(`已导出 ${tablePayloads.length} 张表格`)
   } catch (err) {
     message.error((err as Error).message)
   } finally {
@@ -736,7 +784,7 @@ function formatTrashPreview(data: Record<string, unknown>): string {
   if (isDeletedTableSnapshot(data)) {
     const fieldCount = Array.isArray(data.field_meta) ? data.field_meta.length : 0
     const rowCount = Array.isArray(data.rows) ? data.rows.length : 0
-    return `${fieldCount} fields / ${rowCount} records`
+    return `${fieldCount} 个字段 / ${rowCount} 条记录`
   }
   const entries = Object.entries(data).filter(([k]) => k !== 'id' && k !== 'created_at')
   return entries.slice(0, 3).map(([, v]) => v == null ? '—' : String(v)).join(' / ')
@@ -765,7 +813,7 @@ async function handleRestore(id: number) {
   try {
     const item = trashItems.value?.find(entry => entry.id === id)
     await api.restoreTrash(id)
-    message.success(item && isDeletedTableSnapshot(item.record_data) ? 'Table restored' : 'Record restored')
+    message.success(item && isDeletedTableSnapshot(item.record_data) ? '表格已恢复' : '记录已恢复')
     queryClient.invalidateQueries({ queryKey: ['trash'], exact: false })
     queryClient.invalidateQueries({ queryKey: ['records'] })
     queryClient.invalidateQueries({ queryKey: ['tables'] })
@@ -807,7 +855,7 @@ const notesTrashItems = computed(() => notesTrashResult.value?.data)
 const notesTrashTotal = computed(() => notesTrashResult.value?.meta.total ?? 0)
 
 function formatNoteTrashTime(ts: number): string {
-  return new Date(ts * 1000).toLocaleString('en-US', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return new Date(ts * 1000).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 async function handleNoteRestore(id: string) {
@@ -894,6 +942,7 @@ const newMemberEmail = ref('')
 const addingMember = ref(false)
 const renamingTeam = ref(false)
 const removingMember = ref<number | null>(null)
+const resendingMember = ref<number | null>(null)
 const editTeamName = ref('')
 
 const { data: teamData, isLoading: teamLoading } = useQuery({
@@ -929,8 +978,12 @@ async function handleAddMember() {
   }
   addingMember.value = true
   try {
-    await teamApi.addMember(email)
-    message.success(`Member "${email}" added`)
+    const res = await teamApi.addMember(email)
+    if (res.data?.mail_sent === false) {
+      message.warning(`账号已建好，但邮件没发出：${res.error?.message || '请检查邮箱配置'}`)
+    } else {
+      message.success(`已向 ${email} 发送邀请，对方点邮件里的链接设置密码`)
+    }
     newMemberEmail.value = ''
     queryClient.invalidateQueries({ queryKey: ['team-current'] })
   } catch (err) {
@@ -940,10 +993,22 @@ async function handleAddMember() {
   }
 }
 
+async function handleResendInvite(userId: number) {
+  resendingMember.value = userId
+  try {
+    await teamApi.resendInvite(userId)
+    message.success('邀请已重发，请对方查收邮件')
+  } catch (err) {
+    message.error((err as Error).message)
+  } finally {
+    resendingMember.value = null
+  }
+}
+
 async function handleRemoveMember(userId: number, name: string) {
   dialog.warning({
     title: '移除成员',
-    content: `Remove "${name}" from the team? This will permanently delete the user account.`,
+    content: `将「${name}」移出团队？该账号会被删除。`,
     positiveText: '移除',
     negativeText: '取消',
     onPositiveClick: async () => {
@@ -1049,6 +1114,23 @@ const isOwner = computed(() => {
   margin-top: 4px;
   font-size: 12px;
   color: #7b8090;
+  line-height: 1.5;
+}
+.folder-form-item :deep(.n-form-item-blank) {
+  display: block;
+  width: 100%;
+}
+.folder-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: 10px;
+}
+.folder-pick-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #999;
   line-height: 1.5;
 }
 .empty-hint {
@@ -1283,6 +1365,7 @@ const isOwner = computed(() => {
   background: #f5f6f8;
   padding: 1px 6px;
   border-radius: 3px;
+  cursor: pointer;
 }
 .key-last-used {
   font-size: 11px;

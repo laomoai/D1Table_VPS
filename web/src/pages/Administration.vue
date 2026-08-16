@@ -65,10 +65,10 @@
         </div>
 
         <div class="detail-meta">
-          <span>Owner: {{ spaceDetail.owner_email || 'N/A' }}</span>
+          <span>所有者：{{ spaceDetail.owner_email || '无' }}</span>
         </div>
 
-        <div class="detail-section-title">Members ({{ spaceDetail.members.length }})</div>
+        <div class="detail-section-title">成员（{{ spaceDetail.members.length }}）</div>
         <div v-if="spaceDetail.members.length" class="member-list-scroll">
           <div v-for="m in spaceDetail.members" :key="m.id" class="user-row">
             <img :src="avatarUrl(m.picture, m.email)" class="user-avatar" referrerpolicy="no-referrer" />
@@ -125,10 +125,10 @@ function formatLastLogin(ts: number | null): string {
   if (!ts) return '从未'
   const now = Math.floor(Date.now() / 1000)
   const diff = now - ts
-  if (diff < 60) return 'Just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+  if (diff < 60) return '刚刚'
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`
+  if (diff < 604800) return `${Math.floor(diff / 86400)} 天前`
   const d = new Date(ts * 1000)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -222,7 +222,7 @@ async function handleAddMember() {
   addingMember.value = true
   try {
     await administrationApi.addMember(activeSpaceId.value, email)
-    message.success(`Member "${email}" added`)
+    message.success(`已添加成员 ${email}`)
     newMemberEmail.value = ''
     await refreshDetail()
     queryClient.invalidateQueries({ queryKey: ['admin-spaces'] })
@@ -239,7 +239,7 @@ const removingMember = ref<number | null>(null)
 function handleRemoveMember(m: { id: number; name: string; email: string }) {
   dialog.warning({
     title: '移除成员',
-    content: `Remove "${m.name || m.email}" from this space? This will permanently delete the user account.`,
+    content: `将「${m.name || m.email}」移出该空间？该账号会被删除。`,
     positiveText: '移除',
     negativeText: '取消',
     onPositiveClick: async () => {

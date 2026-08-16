@@ -4,6 +4,7 @@
     <div class="notes-editor-area">
       <n-spin v-if="activeNoteId && !noteReady" style="padding: 60px; display: flex; justify-content: center;" />
       <template v-else-if="activeNoteId && noteReady && activeNote">
+        <ArchiveBackBar />
         <div class="note-header">
           <div class="note-title-row">
             <button class="note-icon-btn" @click="showIconPicker = true" :disabled="noteFrozen" :title="activeNote.icon ? '更换图标' : '添加图标'">
@@ -136,6 +137,8 @@ const NoteEditor = defineAsyncComponent(() => import('@/components/NoteEditor.vu
 import AppModal from '@/components/AppModal.vue'
 import HoverTooltipText from '@/components/HoverTooltipText.vue'
 import IonIcon from '@/components/IonIcon.vue'
+import ArchiveBackBar from '@/components/ArchiveBackBar.vue'
+import { trackRecentAccess } from '@/utils/recentAccess'
 
 const IconPicker = defineAsyncComponent(() => import('@/components/IconPicker.vue'))
 
@@ -297,8 +300,11 @@ function confirmDeleteCurrentNote() {
 }
 
 watch(() => route.params.noteId, (id) => {
-  if (id && typeof id === 'string' && id !== activeNoteId.value) switchToNote(id)
-})
+  if (id && typeof id === 'string') {
+    trackRecentAccess('note', id)
+    if (id !== activeNoteId.value) switchToNote(id)
+  }
+}, { immediate: true })
 
 if (route.params.noteId) {
   activeNoteId.value = route.params.noteId as string
@@ -314,6 +320,7 @@ async function flushSave(): Promise<void> {
       await notesApi.updateNote(id, { title: noteTitle.value.trim() })
       savedTitle = noteTitle.value.trim()
       queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
+      queryClient.invalidateQueries({ queryKey: ['workspace'] })
     } catch (err) {
       message.error((err as Error).message)
     }
@@ -342,6 +349,7 @@ async function saveTitle() {
     await notesApi.updateNote(activeNoteId.value, { title: noteTitle.value.trim() })
     savedTitle = noteTitle.value.trim()
     queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
     lastSaved.value = true
   } catch (err) {
     saveError.value = `保存失败：${(err as Error).message}`
@@ -417,6 +425,7 @@ async function onIconSelect(icon: string | null) {
     await notesApi.updateNote(activeNoteId.value, { icon })
     queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
     queryClient.invalidateQueries({ queryKey: ['notes', activeNoteId.value] })
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
   } catch (err) {
     message.error((err as Error).message)
   }
@@ -428,9 +437,9 @@ function formatTime(ts: number) {
   const diffMs = now.getTime() - d.getTime()
   const diffMin = Math.floor(diffMs / 60000)
   if (diffMin < 1) return '刚刚'
-  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffMin < 60) return `${diffMin} 分钟前`
   const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h ago`
+  if (diffHr < 24) return `${diffHr} 小时前`
   return d.toLocaleDateString()
 }
 
@@ -499,7 +508,7 @@ async function exportCurrentNote() {
   const note = activeNote.value
   const filename = `${note.title.replace(/[/\\?%*:|"<>]/g, '_')}.md`
   downloadFile(filename, note.content)
-  message.success(`Exported: ${filename}`)
+  message.success(`已导出 ${filename}`)
 }
 
 function triggerImport(mode: 'new-single' | 'new-batch' | 'append') {
@@ -525,11 +534,11 @@ async function handleImport(event: Event) {
       noteEditorRef.value.insertAtEnd(content)
       await saveContent()
     }
-    message.success(`Appended content from ${file.name}`)
+    message.success(`已追加 ${file.name} 的内容`)
     return
   }
 
-  importProgress.value = `Importing ${files.length} file(s)...`
+  importProgress.value = `正在导入 ${files.length} 个文件…`
   let imported = 0
 
   for (const file of Array.from(files)) {
@@ -540,15 +549,15 @@ async function handleImport(event: Event) {
 
       await notesApi.createNote({ title, content })
       imported++
-      importProgress.value = `Imported ${imported} of ${files.length}...`
+      importProgress.value = `已导入 ${imported} / ${files.length}…`
     } catch (err) {
-      message.error(`Failed to import ${file.name}: ${(err as Error).message}`)
+      message.error(`导入 ${file.name} 失败：${(err as Error).message}`)
     }
   }
 
   queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
   importProgress.value = ''
-  message.success(`Imported ${imported} note(s)`)
+  message.success(`已导入 ${imported} 篇笔记`)
 }
 </script>
 

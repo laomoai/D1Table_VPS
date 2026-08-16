@@ -11,7 +11,10 @@ http.interceptors.response.use(
   (err) => {
     // 401: 未登录，跳转登录页
     if (err.response?.status === 401) {
-      if (window.location.pathname !== '/login') {
+      const path = window.location.pathname
+      const reqUrl = String(err.config?.url || '')
+      const isAuthProbe = reqUrl.includes('/auth/me')
+      if (!isAuthProbe && path !== '/login' && path !== '/reset-password') {
         window.location.href = '/login'
       }
     }
@@ -259,6 +262,7 @@ export interface TrashItem {
 export interface ApiKeyInfo {
   id: number
   key_prefix: string
+  key_plain?: string | null
   name: string
   type: 'readonly' | 'readwrite'
   scope: 'all' | 'groups'
@@ -355,6 +359,7 @@ export interface WorkspaceNode {
   group_id: number | null
   team_id: number | null
   icon: string | null
+  archived_at?: number | null
 }
 
 export type ArchivedFolder = {
@@ -372,6 +377,8 @@ export const workspaceApi = {
     http.post<{ data: WorkspaceNode }>('/workspace/folders', data).then(r => r.data.data),
   renameFolder: (id: string, title: string) =>
     http.patch(`/workspace/folders/${id}`, { title }),
+  updateFolderIcon: (id: string, icon: string | null) =>
+    http.patch(`/workspace/folders/${id}`, { icon }),
   deleteFolder: (id: string) =>
     http.delete(`/workspace/folders/${id}`),
   move: (data: { id: string; parent_id: string | null; sort_order?: number }) =>
@@ -484,8 +491,10 @@ export function avatarUrl(picture: string | null | undefined, email: string): st
 }
 
 export const getCurrentUser = (): Promise<CurrentUser> =>
-  http.get<{ data: CurrentUser }>('/auth/me')
-    .then(r => r.data.data)
+  http.get<{ data: CurrentUser }>('/auth/me').then((r) => r.data.data)
+
+export const changePassword = (current_password: string, new_password: string) =>
+  http.post<{ data: { success: boolean } }>('/auth/change-password', { current_password, new_password }).then((r) => r.data.data)
 
 export const userApi = {
   getUsers: () =>
@@ -504,7 +513,9 @@ export const teamApi = {
   renameTeam: (name: string) =>
     http.patch<{ data: { success: boolean } }>('/teams/current', { name }).then(r => r.data.data),
   addMember: (email: string) =>
-    http.post<{ data: { id: number; email: string; message: string } }>('/teams/current/members', { email }).then(r => r.data.data),
+    http.post<{ data: { id: number; email: string; mail_sent?: boolean }; error?: { message: string } }>('/teams/current/members', { email }).then(r => r.data),
+  resendInvite: (userId: number) =>
+    http.post<{ data: { success: boolean } }>(`/teams/current/members/${userId}/invite`).then(r => r.data.data),
   removeMember: (userId: number) =>
     http.delete(`/teams/current/members/${userId}`),
 }

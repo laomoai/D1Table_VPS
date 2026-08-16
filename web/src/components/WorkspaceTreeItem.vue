@@ -19,7 +19,7 @@
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
     >
-      <span class="ws-drag-handle" title="Drag to move">⋮⋮</span>
+      <span class="ws-drag-handle" title="拖动排序">⋮⋮</span>
       <span
         v-if="node.kind === 'folder' || hasChildren"
         class="ws-arrow"
@@ -27,7 +27,12 @@
         @click.stop="emit('toggle', node.id)"
       >›</span>
       <span v-else class="ws-arrow-placeholder" />
-      <span class="ws-icon">
+      <span
+        class="ws-icon"
+        :class="{ clickable: node.kind === 'folder' }"
+        :title="node.kind === 'folder' ? '更换图标' : undefined"
+        @click.stop="onIconClick"
+      >
         <IonIcon v-if="node.icon && node.icon.startsWith('ion:')" :name="node.icon.slice(4)" :size="14" />
         <span v-else-if="node.icon" class="ws-emoji">{{ node.icon }}</span>
         <IonIcon v-else :name="defaultIcon" :size="14" />
@@ -103,6 +108,7 @@
         @move="emit('move', $event)"
         @delete-folder="emit('delete-folder', $event)"
         @archive="emit('archive', $event)"
+        @change-icon="emit('change-icon', $event)"
         @reorder="emit('reorder', $event)"
         @update:drop-state="emit('update:drop-state', $event)"
       />
@@ -138,6 +144,7 @@ const emit = defineEmits<{
   move: [payload: { id: string; parent_id: string | null }]
   'delete-folder': [id: string]
   archive: [node: WorkspaceNode]
+  'change-icon': [node: WorkspaceNode]
   reorder: [payload: { dragId: string; dropId: string; mode: 'above' | 'child' }]
   'update:drop-state': [state: { id: string | null; position: 'above' | 'child' | null }]
 }>()
@@ -215,6 +222,10 @@ function onDelete() {
 function onArchive() {
   closeMenu()
   emit('archive', props.node)
+}
+
+function onIconClick() {
+  if (props.node.kind === 'folder') emit('change-icon', props.node)
 }
 
 function onClick() {
@@ -303,7 +314,9 @@ function onDrop(e: DragEvent) {
 }
 .ws-arrow.expanded { transform: rotate(90deg); }
 .ws-arrow-placeholder { width: 14px; flex-shrink: 0; }
-.ws-icon { flex-shrink: 0; }
+.ws-icon { flex-shrink: 0; display: inline-flex; }
+.ws-icon.clickable { cursor: pointer; border-radius: 4px; }
+.ws-icon.clickable:hover { background: rgba(55, 53, 47, 0.08); }
 .ws-emoji { font-size: 14px; line-height: 1; }
 .ws-title-wrap { flex: 1; min-width: 0; overflow: hidden; }
 .ws-actions {

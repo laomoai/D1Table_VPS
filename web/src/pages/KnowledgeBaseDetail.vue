@@ -1,8 +1,8 @@
 <template>
   <div class="kbd-page">
     <div class="kbd-inner">
-      <button class="kbd-back" @click="router.push('/archive')">
-        ← 归档
+      <button class="kbd-back" @click="goUp">
+        ← {{ parentFolderId ? '上一级' : '归档' }}
       </button>
 
       <n-spin v-if="isLoading" style="padding: 80px; display: flex; justify-content: center;" />
@@ -12,7 +12,7 @@
           <h1 class="kbd-title">{{ data.folder.title || '未命名文件夹' }}</h1>
           <button class="kbd-btn" @click="restore">恢复整个文件夹</button>
         </div>
-        <p class="kbd-hint">归档架里只读。点表格或笔记可打开查看，不能改内容。</p>
+        <p class="kbd-hint">只读。点开可查看，不能修改。</p>
 
         <div class="kbd-list">
           <div
@@ -59,9 +59,17 @@ const children = computed(() => {
   return nodes.filter((n) => n.parent_id === id)
 })
 
+const parentFolderId = computed(() => data.value?.folder.parent_id || '')
+
+function goUp() {
+  router.push(parentFolderId.value ? `/archive/${parentFolderId.value}` : '/archive')
+}
+
 function openNode(n: WorkspaceNode) {
-  if (n.kind === 'table' && n.ref) router.push(`/tables/${n.ref}`)
-  else if (n.kind === 'note' && n.ref) router.push(`/notes/${n.ref}`)
+  const folder = folderId.value
+  const q = { from: 'archive', folder }
+  if (n.kind === 'table' && n.ref) router.push({ path: `/tables/${n.ref}`, query: q })
+  else if (n.kind === 'note' && n.ref) router.push({ path: `/notes/${n.ref}`, query: q })
   else if (n.kind === 'folder') router.push(`/archive/${n.id}`)
 }
 

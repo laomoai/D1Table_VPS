@@ -10,6 +10,7 @@ const admin = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 type ApiKeySchemaCapabilities = {
   hasNotesScopeColumn: boolean
   hasNoteRootsTable: boolean
+  hasKeyPlainColumn: boolean
 }
 
 async function getApiKeySchemaCapabilities(db: D1Database): Promise<ApiKeySchemaCapabilities> {
@@ -20,9 +21,11 @@ async function getApiKeySchemaCapabilities(db: D1Database): Promise<ApiKeySchema
     ).first<{ name: string }>(),
   ])
   const hasNotesScopeColumn = apiKeyColumns.results.some((c) => c.name === 'notes_scope')
+  const hasKeyPlainColumn = apiKeyColumns.results.some((c) => c.name === 'key_plain')
   return {
     hasNotesScopeColumn,
     hasNoteRootsTable: !!noteRootsTable,
+    hasKeyPlainColumn,
   }
 }
 
@@ -80,14 +83,15 @@ admin.get('/keys', async (c) => {
   const notesScopeSelect = capabilities.hasNotesScopeColumn
     ? 'notes_scope'
     : "CASE WHEN scope = 'groups' THEN 'none' ELSE 'all' END AS notes_scope"
+  const keyPlainSelect = capabilities.hasKeyPlainColumn ? 'key_plain' : 'NULL AS key_plain'
 
   const keySql = teamId !== undefined
-    ? `SELECT id, key_prefix, name, type, scope, ${notesScopeSelect}, created_at, is_active, last_used_at FROM _api_keys WHERE team_id = ? ORDER BY created_at DESC LIMIT 200`
-    : `SELECT id, key_prefix, name, type, scope, ${notesScopeSelect}, created_at, is_active, last_used_at FROM _api_keys ORDER BY created_at DESC LIMIT 200`
+    ? `SELECT id, key_prefix, ${keyPlainSelect}, name, type, scope, ${notesScopeSelect}, created_at, is_active, last_used_at FROM _api_keys WHERE team_id = ? ORDER BY created_at DESC LIMIT 200`
+    : `SELECT id, key_prefix, ${keyPlainSelect}, name, type, scope, ${notesScopeSelect}, created_at, is_active, last_used_at FROM _api_keys ORDER BY created_at DESC LIMIT 200`
 
   const rows = teamId !== undefined
-    ? await c.env.DB.prepare(keySql).bind(teamId).all<{ id: number; key_prefix: string; name: string; type: string; scope: string; notes_scope: string; created_at: number; is_active: number; last_used_at: number | null }>()
-    : await c.env.DB.prepare(keySql).all<{ id: number; key_prefix: string; name: string; type: string; scope: string; notes_scope: string; created_at: number; is_active: number; last_used_at: number | null }>()
+    ? await c.env.DB.prepare(keySql).bind(teamId).all<{ id: number; key_prefix: string; key_plain: string | null; name: string; type: string; scope: string; notes_scope: string; created_at: number; is_active: number; last_used_at: number | null }>()
+    : await c.env.DB.prepare(keySql).all<{ id: number; key_prefix: string; key_plain: string | null; name: string; type: string; scope: string; notes_scope: string; created_at: number; is_active: number; last_used_at: number | null }>()
 
   // 获取每个 key 关联的分组
   const akgRows = await c.env.DB
@@ -114,7 +118,7 @@ admin.get('/keys', async (c) => {
     for (const r of noteRootRows.results) {
       const keyId = String(r.key_id)
       const arr = noteRootsByKey.get(keyId) ?? []
-      arr.push({ id: r.note_id, title: r.title || 'Untitled' })
+      arr.push({ id: r.note_id, title: r.title || '未命名' })
       noteRootsByKey.set(keyId, arr)
     }
   }
@@ -190,7 +194,12 @@ admin.post('/keys', async (c) => {
 
   let newKeyId: number | null = null
   try {
-    const insertResult = capabilities.hasNotesScopeColumn
+    const insertResult = capabilities.hasNotesScopeColumn && capabilities.hasKeyPlainColumn
+      ? await c.env.DB
+          .prepare(`INSERT INTO _api_keys (key_prefix, key_hash, key_plain, name, type, scope, notes_scope, user_id, team_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .bind(keyPrefix, keyHash, plainKey, body.name.trim(), keyType, scope, notesScope, c.get('userId') ?? null, c.get('teamId') ?? null)
+          .run()
+      : capabilities.hasNotesScopeColumn
       ? await c.env.DB
           .prepare(`INSERT INTO _api_keys (key_prefix, key_hash, name, type, scope, notes_scope, user_id, team_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
           .bind(keyPrefix, keyHash, body.name.trim(), keyType, scope, notesScope, c.get('userId') ?? null, c.get('teamId') ?? null)
@@ -247,7 +256,7 @@ admin.post('/keys', async (c) => {
       group_ids: scope === 'groups' ? normalizedGroupIds : [],
       note_root_ids: notesScope === 'roots' ? normalizedNoteRootIds : [],
     },
-    message: 'Save this key now — it will not be shown again',
+    message: '密钥已创建',
   }, 201)
 })
 

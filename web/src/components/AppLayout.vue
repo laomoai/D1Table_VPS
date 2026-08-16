@@ -47,6 +47,7 @@
             @move="onManageMove"
             @delete-folder="onDeleteFolder"
             @archive="onArchiveNode"
+            @change-icon="openFolderIconPicker"
             @reorder="handleWorkspaceReorder"
             @update:drop-state="wsDropState = $event"
           />
@@ -113,6 +114,9 @@
 
     <NotePreviewModal />
     <CreateTableModal v-model:show="showCreateTable" :folder-id="createTargetFolder" @created="onTableCreated" />
+    <AppModal v-model:show="showFolderIconPicker" title="更换文件夹图标" width="360px" height="auto">
+      <icon-picker :current-icon="folderIconTarget?.icon ?? null" @select="onFolderIconSelect" />
+    </AppModal>
     <WorkspaceNameModal
       v-model:show="showNameModal"
       :title="nameModalTitle"
@@ -127,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, nextTick, reactive, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { NIcon, NSpin, useMessage, useDialog } from 'naive-ui'
@@ -148,6 +152,9 @@ import NotePreviewModal from './NotePreviewModal.vue'
 import WorkspaceTreeItem from './WorkspaceTreeItem.vue'
 import CreateTableModal from './CreateTableModal.vue'
 import WorkspaceNameModal from './WorkspaceNameModal.vue'
+import AppModal from './AppModal.vue'
+
+const IconPicker = defineAsyncComponent(() => import('./IconPicker.vue'))
 
 const message = useMessage()
 const dialog = useDialog()
@@ -268,6 +275,27 @@ function openNoteModal() {
   nameModalKind.value = 'note'
   folderModalInitial.value = ''
   showNameModal.value = true
+}
+
+const showFolderIconPicker = ref(false)
+const folderIconTarget = ref<WorkspaceNode | null>(null)
+
+function openFolderIconPicker(node: WorkspaceNode) {
+  if (node.kind !== 'folder') return
+  folderIconTarget.value = node
+  showFolderIconPicker.value = true
+}
+
+async function onFolderIconSelect(icon: string | null) {
+  if (!folderIconTarget.value) return
+  showFolderIconPicker.value = false
+  try {
+    await workspaceApi.updateFolderIcon(folderIconTarget.value.id, icon)
+    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+  } catch (err) {
+    message.error((err as Error).message)
+  }
+  folderIconTarget.value = null
 }
 
 function openRenameModal(node: WorkspaceNode) {
@@ -812,7 +840,7 @@ async function createNewNote() {
 function archiveNote(noteId: string) {
   dialog.warning({
     title: '归档笔记',
-    content: '归档这篇笔记及其子页面？可在知识库中恢复。',
+    content: '归档这篇笔记及其子页面？可在归档中恢复。',
     positiveText: '归档',
     negativeText: '取消',
     onPositiveClick: async () => {

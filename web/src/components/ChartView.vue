@@ -657,7 +657,7 @@ function formatKpi(n: number): string {
 
 function kpiDesc(widget: Widget): string {
   const vk = widget.kpiKey ?? '__count__'
-  if (vk === '__count__') return 'Total records'
+  if (vk === '__count__') return '记录数'
   const col = vk.replace(/^(sum|avg|max|__count)_/, '')
   const f = props.fields.find(x => x.column_name === col)
   const fname = f?.title || col

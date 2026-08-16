@@ -12,6 +12,7 @@ import {
   listWorkspaceNodes,
   moveNode,
   renameFolder,
+  updateFolderIcon,
   archiveFolder,
   unarchiveFolder,
   listArchivedFolders,
@@ -54,9 +55,17 @@ workspace.post('/folders', requireWriteMiddleware, async (c) => {
 })
 
 workspace.patch('/folders/:id', requireWriteMiddleware, async (c) => {
-  const body = await c.req.json<{ title?: string }>().catch(() => ({}))
+  const body = await c.req.json<{ title?: string; icon?: string | null }>().catch(() => ({}))
   try {
-    await renameFolder(c.env.DB, c.req.param('id'), body.title ?? '', c.get('teamId'))
+    if (body.title !== undefined) {
+      await renameFolder(c.env.DB, c.req.param('id'), body.title, c.get('teamId'))
+    }
+    if ('icon' in body) {
+      await updateFolderIcon(c.env.DB, c.req.param('id'), body.icon ?? null, c.get('teamId'))
+    }
+    if (body.title === undefined && !('icon' in body)) {
+      return c.json({ error: { code: 'INVALID_BODY', message: 'Nothing to update' } }, 400)
+    }
     return c.json({ data: { success: true } })
   } catch (err) {
     return workspaceError(c, err)

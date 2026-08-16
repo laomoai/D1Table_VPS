@@ -10,6 +10,10 @@ export function isValidEmail(email: string): boolean {
  */
 export async function hardDeleteMember(db: D1Database, userId: number) {
   await db.batch([
+    db.prepare(`DELETE FROM _password_resets WHERE user_id = ?`).bind(userId),
+    db.prepare(`DELETE FROM _api_key_groups WHERE key_id IN (SELECT id FROM _api_keys WHERE user_id = ?)`).bind(userId),
+    db.prepare(`DELETE FROM _api_key_note_roots WHERE key_id IN (SELECT id FROM _api_keys WHERE user_id = ?)`).bind(userId),
+    db.prepare(`UPDATE _workspace_nodes SET owner_id = NULL WHERE owner_id = ?`).bind(userId),
     db.prepare(`UPDATE _notes SET owner_id = NULL WHERE owner_id = ?`).bind(userId),
     db.prepare(`UPDATE _notes SET created_by = NULL WHERE created_by = ?`).bind(userId),
     db.prepare(`UPDATE _groups SET owner_id = NULL WHERE owner_id = ?`).bind(userId),

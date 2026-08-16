@@ -61,6 +61,16 @@ export function applyMigrations(sqlitePath: string, migrationsDir: string): void
       db.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(file)
       continue
     }
+    if (file === '0027_folder_icon.sql' && hasColumn('_workspace_nodes', 'icon')) {
+      console.log(`Skipping ${file} because _workspace_nodes.icon already exists.`)
+      db.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(file)
+      continue
+    }
+    if (file === '0028_api_key_plain.sql' && hasColumn('_api_keys', 'key_plain')) {
+      console.log(`Skipping ${file} because _api_keys.key_plain already exists.`)
+      db.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(file)
+      continue
+    }
 
     console.log(`Applying ${file}...`)
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
