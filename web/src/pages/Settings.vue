@@ -29,11 +29,25 @@
       <n-tab-pane name="files" tab="附件">
         <div class="tab-content">
           <p class="hint" style="margin:0 0 12px;line-height:1.55">
-            图片存在本机磁盘，表格字段和笔记正文里引用到的会保留。
-            上传后超过 24 小时仍没有被任何表格或笔记用到的，算闲置，可以清理。
+            图片存在本机磁盘。表格字段和笔记正文里还引用着的会保留；
+            上传超过 24 小时仍没人用的算闲置。
           </p>
-          <div class="hint" style="margin-bottom:12px">
-            共 {{ fileStats?.total ?? '—' }} 个文件，其中闲置 {{ fileStats?.orphan ?? '—' }} 个
+          <div class="space-card">
+            <div class="space-head">
+              <span>占用 {{ formatBytes(fileStats?.bytes ?? 0) }}</span>
+              <span class="hint">{{ fileStats?.total ?? 0 }} 个文件</span>
+            </div>
+            <div class="space-bar" aria-hidden="true">
+              <div class="space-used" :style="{ width: usedPct + '%' }" />
+              <div class="space-orphan" :style="{ width: orphanPct + '%' }" />
+            </div>
+            <div class="space-legend">
+              <span><i class="dot used" />在用 {{ formatBytes(fileStats?.used_bytes ?? 0) }}</span>
+              <span><i class="dot orphan" />闲置 {{ formatBytes(fileStats?.orphan_bytes ?? 0) }}（{{ fileStats?.orphan ?? 0 }} 个）</span>
+            </div>
+            <p class="space-sample">
+              示意：一张详情图大约 200KB～1.5MB，缩略图约 10KB。100 张图大概 20～150MB。
+            </p>
           </div>
           <n-button size="small" :loading="sweepingFiles" :disabled="!fileStats?.orphan" @click="handleSweepFiles">
             清理闲置图片
@@ -535,6 +549,24 @@ const { data: fileStats, refetch: refetchFileStats } = useQuery({
   queryKey: ['upload-file-stats'],
   queryFn: api.fileStats,
   retry: false,
+})
+
+function formatBytes(n: number) {
+  if (!n) return '0 B'
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / 1024 / 1024).toFixed(2)} MB`
+}
+
+const usedPct = computed(() => {
+  const t = fileStats.value?.bytes ?? 0
+  if (!t) return 0
+  return Math.round(((fileStats.value?.used_bytes ?? 0) / t) * 100)
+})
+const orphanPct = computed(() => {
+  const t = fileStats.value?.bytes ?? 0
+  if (!t) return 0
+  return Math.max(0, 100 - usedPct.value)
 })
 
 async function handleSweepFiles() {
@@ -1357,6 +1389,54 @@ const isOwner = computed(() => {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+}
+.space-card {
+  max-width: 480px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e8eaf0;
+  border-radius: 10px;
+  background: #fff;
+}
+.space-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: #37352f;
+  margin-bottom: 10px;
+}
+.space-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: #eef0f4;
+}
+.space-used { background: #4f6ef7; }
+.space-orphan { background: #f0a020; }
+.space-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #666;
+}
+.space-legend .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.space-legend .dot.used { background: #4f6ef7; }
+.space-legend .dot.orphan { background: #f0a020; }
+.space-sample {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #9b9a97;
+  line-height: 1.5;
 }
 
 /* ── Key list ── */

@@ -67,15 +67,27 @@ upload.delete('/image', async (c) => {
 
 upload.get('/files/stats', async (c) => {
   const teamId = c.get('teamId')
-  const totalSql = teamId !== undefined
-    ? c.env.DB.prepare(`SELECT COUNT(*) AS n FROM _files WHERE team_id = ?`).bind(teamId)
-    : c.env.DB.prepare(`SELECT COUNT(*) AS n FROM _files`)
-  const total = await totalSql.first<{ n: number }>()
+  const listSql = teamId !== undefined
+    ? c.env.DB.prepare(`SELECT storage_key FROM _files WHERE team_id = ?`).bind(teamId)
+    : c.env.DB.prepare(`SELECT storage_key FROM _files`)
+  const listed = await listSql.all<{ storage_key: string }>()
   const orphans = await listOrphanFiles(c.env.DB, { teamId, olderThanSec: 24 * 3600 })
+  const orphanKeys = new Set(orphans.map((o) => o.storage_key))
+  let bytes = 0
+  let orphanBytes = 0
+  for (const row of listed.results ?? []) {
+    const n = await c.env.BUCKET.size(row.storage_key)
+    if (!n) continue
+    bytes += n
+    if (orphanKeys.has(row.storage_key)) orphanBytes += n
+  }
   return c.json({
     data: {
-      total: total?.n ?? 0,
+      total: listed.results?.length ?? 0,
       orphan: orphans.length,
+      bytes,
+      orphan_bytes: orphanBytes,
+      used_bytes: Math.max(0, bytes - orphanBytes),
       orphan_after_hours: 24,
     },
   })

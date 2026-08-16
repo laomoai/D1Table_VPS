@@ -222,7 +222,14 @@ export const api = {
   deleteImage: (thumb: string, display: string): Promise<void> =>
     http.delete('/upload/image', { data: { thumb, display } }).then(() => {}),
   fileStats: () =>
-    http.get<{ data: { total: number; orphan: number; orphan_after_hours: number } }>('/upload/files/stats').then((r) => r.data.data),
+    http.get<{ data: {
+      total: number
+      orphan: number
+      bytes: number
+      orphan_bytes: number
+      used_bytes: number
+      orphan_after_hours: number
+    } }>('/upload/files/stats').then((r) => r.data.data),
   sweepFiles: () =>
     http.post<{ data: { deleted: number } }>('/upload/files/sweep').then((r) => r.data.data),
 

@@ -15,6 +15,7 @@ export type LocalBucket = {
   ) => Promise<void>
   get: (key: string) => Promise<LocalObject | null>
   delete: (key: string) => Promise<void>
+  size: (key: string) => Promise<number | null>
 }
 
 function safeJoin(root: string, key: string): string {
@@ -71,6 +72,15 @@ export function createLocalBucket(rootDir: string): LocalBucket {
       const filePath = safeJoin(rootDir, key)
       await fs.rm(filePath, { force: true })
       await fs.rm(`${filePath}.meta.json`, { force: true })
+    },
+
+    async size(key) {
+      try {
+        const st = await fs.stat(safeJoin(rootDir, key))
+        return st.size
+      } catch {
+        return null
+      }
     },
   }
 }

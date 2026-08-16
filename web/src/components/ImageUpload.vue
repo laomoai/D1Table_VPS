@@ -62,6 +62,7 @@ import IonIcon from './IonIcon.vue'
 const props = defineProps<{
   value: string | null
   tableName?: string
+  noteId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -113,8 +114,8 @@ async function processFile(file: File) {
   try {
     const { thumb, display } = await compressImage(file)
     const result = await api.uploadImage(thumb, display, file.name, {
-      kind: props.tableName ? 'table' : 'none',
-      id: props.tableName ?? null,
+      kind: props.noteId ? 'note' : props.tableName ? 'table' : 'none',
+      id: props.noteId || props.tableName || null,
     })
     emit('update:value', JSON.stringify(result))
   } catch (err) {

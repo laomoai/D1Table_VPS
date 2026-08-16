@@ -21,6 +21,10 @@
         </button>
       </div>
       <div class="bar-actions">
+        <button class="bar-btn" title="插入图片" @click="openImageModal">
+          <IonIcon name="ImageOutline" :size="14" />
+          <span class="bar-btn-label">图片</span>
+        </button>
         <button class="bar-btn" title="插入表格引用" @click="emit('insert-table-ref')">
           <IonIcon name="GridOutline" :size="14" />
           <span class="bar-btn-label">表格</span>
@@ -43,28 +47,15 @@
         <span class="bar-stat">{{ wordCount }} 词</span>
       </div>
       <input ref="appendFileInput" type="file" accept=".md,.markdown,.txt" style="display:none" @change="handleAppendImport" />
-      <input ref="imageFileInput" type="file" accept="image/*" style="display:none" @change="handleImageFile" />
     </div>
 
-    <div
-      v-if="editable"
-      class="note-drop"
-      tabindex="0"
-      :class="{ over: imageDragging, loading: uploadingImage }"
-      @click="triggerImagePicker"
-      @paste="onImagePaste"
-      @dragenter.prevent="imageDragging = true"
-      @dragover.prevent="imageDragging = true"
-      @dragleave.prevent="imageDragging = false"
-      @drop.prevent="onImageDrop"
-    >
-      <span v-if="uploadingImage">上传中…</span>
-      <template v-else>
-        <IonIcon name="ImageOutline" :size="22" />
-        <span>点击或拖拽图片到这里</span>
-        <span class="note-drop-sub">支持 JPG、PNG、GIF、WebP · 可用 Ctrl+V 粘贴</span>
-      </template>
-    </div>
+    <AppModal v-model:show="showImageModal" title="插入图片" width="420px" height="auto">
+      <ImageUpload v-model:value="imageDraft" :note-id="noteId" />
+      <div class="img-modal-actions">
+        <button class="bar-btn" type="button" @click="cancelImageModal">取消</button>
+        <button class="bar-btn img-modal-ok" type="button" :disabled="!imageDraft" @click="confirmImageModal">确认插入</button>
+      </div>
+    </AppModal>
 
     <!-- Content area -->
     <div class="editor-body">
@@ -90,9 +81,10 @@ import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@cod
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import DOMPurify from 'dompurify'
 import { renderMarkdown } from '@/utils/markdown'
-import { compressImage } from '@/utils/compressImage'
-import { api } from '@/api/client'
+import { api, type ImageValue } from '@/api/client'
 import IonIcon from './IonIcon.vue'
+import AppModal from './AppModal.vue'
+import ImageUpload from './ImageUpload.vue'
 
 const props = withDefaults(defineProps<{
   modelValue?: string
@@ -113,9 +105,9 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const appendFileInput = ref<HTMLInputElement | null>(null)
-const imageFileInput = ref<HTMLInputElement | null>(null)
-const uploadingImage = ref(false)
-const imageDragging = ref(false)
+const showImageModal = ref(false)
+const imageDraft = ref<string | null>(null)
+const imageCursor = ref(0)
 
 const editorContainer = ref<HTMLElement | null>(null)
 const editorView = shallowRef<EditorView | null>(null)
@@ -276,6 +268,12 @@ watch(() => props.modelValue, (val) => {
   }
 })
 
+watch(showImageModal, (open, was) => {
+  if (was && !open && imageDraft.value) {
+    void cancelImageModal()
+  }
+})
+
 watch(() => props.editable, () => {
   // Recreate editor when editable changes
   editorView.value?.destroy()
@@ -295,38 +293,40 @@ function handlePreviewClick(e: MouseEvent) {
   }
 }
 
-function triggerImagePicker() {
-  if (!props.editable || uploadingImage.value) return
-  if (imageFileInput.value) {
-    imageFileInput.value.value = ''
-    imageFileInput.value.click()
+function openImageModal() {
+  if (!props.editable) return
+  imageCursor.value = editorView.value?.state.selection.main.head ?? 0
+  imageDraft.value = null
+  showImageModal.value = true
+}
+
+function parseDraft(): ImageValue | null {
+  if (!imageDraft.value) return null
+  try { return JSON.parse(imageDraft.value) as ImageValue } catch { return null }
+}
+
+function confirmImageModal() {
+  const val = parseDraft()
+  if (!val?.display) return
+  const alt = (val.name || '图片').replace(/[[\]]/g, '')
+  insertMarkdown(`![${alt}](/api/files/${val.display})`, undefined, imageCursor.value)
+  showImageModal.value = false
+  imageDraft.value = null
+}
+
+async function cancelImageModal() {
+  const val = parseDraft()
+  if (val?.thumb && val.display) {
+    try { await api.deleteImage(val.thumb, val.display) } catch { /* ignore */ }
   }
+  imageDraft.value = null
+  showImageModal.value = false
 }
 
-async function handleImageFile(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (file) await insertImageFile(file)
-}
-
-function onImageDrop(e: DragEvent) {
-  imageDragging.value = false
-  const file = Array.from(e.dataTransfer?.files ?? []).find((f) => f.type.startsWith('image/'))
-  if (file) void insertImageFile(file)
-}
-
-function onImagePaste(e: ClipboardEvent) {
-  const file = Array.from(e.clipboardData?.items ?? [])
-    .find((i) => i.type.startsWith('image/'))
-    ?.getAsFile()
-  if (!file) return
-  e.preventDefault()
-  void insertImageFile(file)
-}
-
-function insertMarkdown(md: string, view?: EditorView) {
+function insertMarkdown(md: string, view?: EditorView, at?: number) {
   const ed = view ?? editorView.value
   if (!ed) return
-  const pos = ed.state.selection.main.head
+  const pos = at ?? ed.state.selection.main.head
   const prefix = pos > 0 && ed.state.doc.sliceString(Math.max(0, pos - 1), pos) !== '\n' ? '\n\n' : ''
   ed.dispatch({
     changes: { from: pos, insert: prefix + md + '\n\n' },
@@ -336,9 +336,8 @@ function insertMarkdown(md: string, view?: EditorView) {
 }
 
 async function insertImageFile(file: File, view?: EditorView) {
-  if (uploadingImage.value) return
-  uploadingImage.value = true
   try {
+    const { compressImage } = await import('@/utils/compressImage')
     const { thumb, display } = await compressImage(file)
     const result = await api.uploadImage(thumb, display, file.name, {
       kind: props.noteId ? 'note' : 'none',
@@ -348,8 +347,6 @@ async function insertImageFile(file: File, view?: EditorView) {
     insertMarkdown(`![${alt}](/api/files/${result.display})`, view)
   } catch (err) {
     console.error('Image upload failed:', err)
-  } finally {
-    uploadingImage.value = false
   }
 }
 
@@ -404,29 +401,18 @@ defineExpose({
   min-height: 0;
 }
 /* Toolbar */
-.note-drop {
-  margin: 8px 16px 0;
-  border: 1.5px dashed #d0d3da;
-  border-radius: 8px;
-  padding: 18px 16px;
+.img-modal-actions {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: #fafbfc;
-  color: #666;
-  font-size: 13px;
-  cursor: pointer;
-  outline: none;
-  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
 }
-.note-drop:hover,
-.note-drop.over {
-  border-color: #4f6ef7;
-  background: #f0f2ff;
+.img-modal-ok {
+  background: #37352f;
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
 }
-.note-drop.loading { cursor: default; pointer-events: none; }
-.note-drop-sub { font-size: 11px; color: #aaa; }
 .editor-bar {
   display: flex;
   align-items: center;
