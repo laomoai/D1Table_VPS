@@ -371,22 +371,25 @@ export type ArchivedFolder = {
 }
 
 export type TableDraft = {
-  action?: 'create_table' | 'add_fields'
+  action?: 'create_table' | 'add_fields' | 'create_note'
   table_name?: string
   title?: string
+  content?: string
   folder_title?: string
   folder_id?: string | null
   create_folder?: boolean
-  fields: Array<{ title: string; field_type: string; options?: string[] }>
+  fields?: Array<{ title: string; field_type: string; options?: string[] }>
   note?: string
 }
+
+export type AssistantStep = { name: string; label: string }
 
 export const assistantApi = {
   chat: (
     messages: Array<{ role: string; content: string }>,
     context?: { table?: string | null; table_title?: string | null; note?: string | null; note_title?: string | null },
   ) =>
-    http.post<{ data: { reply: string; draft: TableDraft | null } }>('/assistant/chat', { messages, context }, { timeout: 90000 })
+    http.post<{ data: { reply: string; draft: TableDraft | null; steps?: AssistantStep[] } }>('/assistant/chat', { messages, context }, { timeout: 90000 })
       .then((r) => r.data.data),
   confirm: (draft: TableDraft) =>
     http.post<{ data: { name: string; title: string; folder_id: string | null; action?: string; added?: string[] } }>('/assistant/confirm', { draft })

@@ -33,9 +33,6 @@
             <span v-else-if="saving" class="note-saving">保存中...</span>
             <span v-else-if="lastSaved" class="note-saved">已保存</span>
             <div class="note-meta-spacer" />
-            <button v-if="!activeNote.archived_at" class="note-action-btn danger icon-only" @click="confirmDeleteCurrentNote" title="删除笔记" aria-label="删除笔记">
-              <IonIcon name="TrashOutline" :size="14" />
-            </button>
           </div>
         </div>
         <NoteEditor
@@ -131,7 +128,7 @@
 import { ref, computed, watch, nextTick, defineAsyncComponent, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { NSpin, useDialog, useMessage } from 'naive-ui'
+import { NSpin, useMessage } from 'naive-ui'
 import { api, notesApi, type NoteListItem, type TableMeta } from '@/api/client'
 const NoteEditor = defineAsyncComponent(() => import('@/components/NoteEditor.vue'))
 import AppModal from '@/components/AppModal.vue'
@@ -139,13 +136,10 @@ import HoverTooltipText from '@/components/HoverTooltipText.vue'
 import IonIcon from '@/components/IonIcon.vue'
 import ArchiveBackBar from '@/components/ArchiveBackBar.vue'
 import { trackRecentAccess } from '@/utils/recentAccess'
-import { refreshWorkspace } from '@/composables/workspaceNav'
-
 const IconPicker = defineAsyncComponent(() => import('@/components/IconPicker.vue'))
 
 const route = useRoute()
 const router = useRouter()
-const dialog = useDialog()
 const message = useMessage()
 const queryClient = useQueryClient()
 const showIconPicker = ref(false)
@@ -276,29 +270,6 @@ async function switchToNote(id: string | null) {
 
 function selectNote(id: string) {
   switchToNote(id)
-}
-
-function confirmDeleteCurrentNote() {
-  if (!activeNoteId.value) return
-  const noteId = activeNoteId.value
-  dialog.warning({
-    title: '删除笔记',
-    content: '这篇笔记会移到回收站。',
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        await notesApi.deleteNote(noteId)
-        queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
-        queryClient.invalidateQueries({ queryKey: ['notes-trash'], exact: false })
-        await refreshWorkspace(queryClient)
-        await switchToNote(null)
-        message.success('笔记已移到回收站')
-      } catch (err) {
-        message.error((err as Error).message)
-      }
-    },
-  })
 }
 
 watch(() => route.params.noteId, (id) => {

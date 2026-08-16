@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware } from '../middleware/auth'
-import { createFolder, listWorkspaceNodes, expandTablesAcrossFolders, ensureTableNode } from '../utils/workspace'
+import { createFolder, listWorkspaceNodes, expandTablesAcrossFolders, ensureTableNode, ensureNoteNode } from '../utils/workspace'
 import { getUserTables, isValidIdentifier } from '../utils/schema-cache'
 
 const assistant = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -13,13 +13,14 @@ export type DraftField = {
 }
 
 export type TableDraft = {
-  action?: 'create_table' | 'add_fields'
+  action?: 'create_table' | 'add_fields' | 'create_note'
   table_name?: string
   title?: string
+  content?: string
   folder_title?: string
   folder_id?: string | null
   create_folder?: boolean
-  fields: DraftField[]
+  fields?: DraftField[]
   note?: string
 }
 
@@ -28,7 +29,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'list_workspace',
-      description: '列出当前工作区里的文件夹和表格（标题与 id）',
+      description: '列出当前工作区里的文件夹、表格和笔记（标题与 id）',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
@@ -74,6 +75,37 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_note',
+      description: '读取一篇已有笔记的标题和正文。改当前笔记或另存为新笔记前可调用。',
+      parameters: {
+        type: 'object',
+        properties: { note_id: { type: 'string' } },
+        required: ['note_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_note',
+      description: '提出一篇待确认的新笔记草案。用户说「存为笔记」「保存为新笔记」「写成笔记」时必须用这个，不要 propose_table，也不要说自己不能建笔记。',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          content: { type: 'string', description: 'Markdown 正文' },
+          folder_title: { type: 'string' },
+          folder_id: { type: 'string' },
+          create_folder: { type: 'boolean' },
+          note: { type: 'string' },
+        },
+        required: ['title', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'propose_table',
       description: '仅当用户明确要新建一张表时才用。给已有表加字段请用 propose_fields。',
       parameters: {
@@ -104,13 +136,14 @@ const TOOLS = [
 ]
 
 const SYSTEM = `你是墨问里的工作区助手。用户用中文说话。
+你可以操作表格和笔记，不要说「只能操作表格」或「无法创建笔记」。
 你只能通过工具了解和提议改动，不能假装已经改好了。
 系统会告诉你用户当前打开的表格或笔记。
-- 用户说「这个表格」「当前表」「把字段新增为…」「改成适合…」且当前打开了表格：必须 get_table_schema 后 propose_fields，绝不要 propose_table。
-- 只有用户明确说「新建一张表」「再做一张」时才 propose_table。
-账号密码管理建议字段：名称(text)、账号(text)、密码(password)、网址(text)、备注(longtext)；可选 TOTP(totp)、分类(select)。已有同名/同类字段不要重复加。
-学习时间记录建新表：日期、科目、开始、结束、时长、备注。
-先 list_workspace 再新建表。回复用简短中文 Markdown。`
+- 「这个表格 / 当前表 / 新增字段」：get_table_schema 后 propose_fields。
+- 「新建一张表」：propose_table。
+- 「存为笔记 / 保存为新笔记 / 写成笔记 / 这篇存下来」：propose_note，content 用完整 Markdown。
+账号密码管理建议字段：名称、账号、密码(password)、网址、备注；可选 TOTP、分类。
+先 list_workspace 再决定放到哪个文件夹。回复用简短中文 Markdown。`
 
 function fieldTypeToSqlite(t: string): 'TEXT' | 'INTEGER' {
   if (t === 'number' || t === 'checkbox' || t === 'date' || t === 'datetime') return 'INTEGER'
@@ -128,8 +161,21 @@ async function listWorkspaceBrief(c: { env: Env; get: (k: string) => unknown }) 
   const teamId = c.get('teamId') as number | undefined
   const nodes = await expandTablesAcrossFolders(c.env.DB, teamId, await listWorkspaceNodes(c.env.DB, teamId))
   return nodes
-    .filter((n) => n.kind === 'folder' || n.kind === 'table')
+    .filter((n) => n.kind === 'folder' || n.kind === 'table' || n.kind === 'note')
     .map((n) => ({ id: n.id, kind: n.kind, title: n.title, parent_id: n.parent_id, ref: n.ref }))
+}
+
+async function getNoteBrief(db: Env['DB'], noteId: string) {
+  const row = await db.prepare(
+    `SELECT id, title, content FROM _notes WHERE id = ? AND deleted_at IS NULL`,
+  ).bind(noteId).first<{ id: string; title: string; content: string }>()
+  if (!row) return { error: '找不到这篇笔记' }
+  const content = row.content || ''
+  return {
+    id: row.id,
+    title: row.title,
+    content: content.length > 16000 ? `${content.slice(0, 16000)}\n…(已截断)` : content,
+  }
 }
 
 async function getTableSchema(db: Env['DB'], tableName: string) {
@@ -207,6 +253,15 @@ assistant.post('/chat', async (c) => {
 
   let draft: TableDraft | null = null
   let reply = ''
+  const steps: Array<{ name: string; label: string }> = []
+  const stepLabel: Record<string, string> = {
+    list_workspace: '查看工作区',
+    get_table_schema: '读取表格字段',
+    get_note: '读取笔记',
+    propose_fields: '准备添加字段',
+    propose_table: '准备新建表格',
+    propose_note: '准备新建笔记',
+  }
 
   for (let i = 0; i < 5; i++) {
     const data = await llmChat(apiKey, messages)
@@ -223,9 +278,31 @@ assistant.post('/chat', async (c) => {
     for (const call of calls) {
       let result: unknown = { ok: false }
       try {
-        const args = JSON.parse(call.function.arguments || '{}') as TableDraft & { table_name?: string }
+        const args = JSON.parse(call.function.arguments || '{}') as TableDraft & { table_name?: string; note_id?: string }
+        steps.push({ name: call.function.name, label: stepLabel[call.function.name] || call.function.name })
         if (call.function.name === 'list_workspace') {
           result = await listWorkspaceBrief(c)
+        } else if (call.function.name === 'get_note') {
+          const nid = String(args.note_id || ctx?.note || '').trim()
+          if (!nid) result = { error: '缺少 note_id' }
+          else result = await getNoteBrief(c.env.DB, nid)
+        } else if (call.function.name === 'propose_note') {
+          const title = String(args.title || '').trim()
+          const content = String(args.content || '').trim()
+          if (!title || !content) {
+            result = { error: 'title 和 content 必填' }
+          } else {
+            draft = {
+              action: 'create_note',
+              title,
+              content,
+              folder_title: args.folder_title?.trim(),
+              folder_id: args.folder_id || null,
+              create_folder: !!args.create_folder,
+              note: args.note,
+            }
+            result = { ok: true, waiting_for_user_confirm: true, draft }
+          }
         } else if (call.function.name === 'get_table_schema') {
           const name = String(args.table_name || ctx?.table || '').trim()
           if (!name) result = { error: '缺少 table_name' }
@@ -255,7 +332,7 @@ assistant.post('/chat', async (c) => {
               folder_title: args.folder_title?.trim(),
               folder_id: args.folder_id || null,
               create_folder: !!args.create_folder,
-              fields: normalizeFields(args.fields),
+              fields: normalizeFields(args.fields || []),
               note: args.note,
             }
             result = { ok: true, waiting_for_user_confirm: true, draft }
@@ -276,19 +353,56 @@ assistant.post('/chat', async (c) => {
 
   if (!reply) {
     reply = draft?.action === 'add_fields'
-      ? `准备给当前表增加 ${draft.fields.length} 个字段，确认后才会写入。`
-      : draft
-        ? `准备建「${draft.title}」。请确认下面的字段后，我再真正创建。`
-        : '我这边没有得到明确回复，请再说一次。'
+      ? `准备给当前表增加 ${draft.fields?.length || 0} 个字段，确认后才会写入。`
+      : draft?.action === 'create_note'
+        ? `准备新建笔记「${draft.title}」。确认后写入工作区。`
+        : draft
+          ? `准备建「${draft.title}」。请确认下面的字段后，我再真正创建。`
+          : '我这边没有得到明确回复，请再说一次。'
   }
 
-  return c.json({ data: { reply, draft } })
+  return c.json({ data: { reply, draft, steps } })
 })
 
 assistant.post('/confirm', requireWriteMiddleware, async (c) => {
   const body = await c.req.json<{ draft?: TableDraft }>().catch(() => ({ draft: undefined as TableDraft | undefined }))
   const draft = body.draft
-  if (!draft?.fields?.length) {
+  if (!draft) {
+    return c.json({ error: { code: 'INVALID_BODY', message: '没有可确认的草案' } }, 400)
+  }
+
+  if (draft.action === 'create_note') {
+    const title = String(draft.title || '').trim()
+    const content = String(draft.content || '').trim()
+    if (!title || !content) {
+      return c.json({ error: { code: 'INVALID_BODY', message: '笔记标题和正文不能为空' } }, 400)
+    }
+    const teamId = c.get('teamId')
+    const ownerId = c.get('userId') ?? null
+    const nodes = await expandTablesAcrossFolders(c.env.DB, teamId, await listWorkspaceNodes(c.env.DB, teamId))
+    let folderId = draft.folder_id || null
+    if (!folderId && draft.folder_title) {
+      const hit = nodes.find((n) => n.kind === 'folder' && n.title === draft.folder_title)
+      folderId = hit?.id ?? null
+    }
+    if (!folderId && draft.folder_title && draft.create_folder) {
+      const folder = await createFolder(c.env.DB, {
+        title: draft.folder_title,
+        teamId,
+        ownerId,
+      })
+      folderId = folder.id
+    }
+    const id = 'n_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+    await c.env.DB.prepare(
+      `INSERT INTO _notes (id, title, content, parent_id, created_by, owner_id, team_id)
+       VALUES (?, ?, ?, NULL, ?, ?, ?)`,
+    ).bind(id, title, content, ownerId, ownerId, teamId ?? null).run()
+    await ensureNoteNode(c.env.DB, { noteId: id, title, folderId, teamId, ownerId })
+    return c.json({ data: { name: id, title, folder_id: folderId, action: 'create_note' } }, 201)
+  }
+
+  if (!draft.fields?.length) {
     return c.json({ error: { code: 'INVALID_BODY', message: '没有可确认的草案' } }, 400)
   }
 

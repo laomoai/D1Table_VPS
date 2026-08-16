@@ -136,7 +136,7 @@
     <main class="main-content">
       <router-view />
     </main>
-    <AssistantPanel v-if="assistantOpen" v-model:open="assistantOpen" />
+    <AssistantPanel v-show="assistantOpen" v-model:open="assistantOpen" />
 
     <NotePreviewModal />
     <CreateTableModal v-model:show="showCreateTable" :folder-id="createTargetFolder" @created="onTableCreated" />
