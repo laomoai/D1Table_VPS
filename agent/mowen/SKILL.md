@@ -33,12 +33,16 @@ python3 scripts/mowen.py update-note --id n_xxx --content "新正文"
 python3 scripts/mowen.py archive-note --id n_xxx
 
 python3 scripts/mowen.py workspace
+python3 scripts/mowen.py move --id wn_t_xxxx --folder wn_f_目标文件夹
+python3 scripts/mowen.py move --id wn_n_xxxx --folder root
 python3 scripts/mowen.py groups
 ```
 
 ## 约定
 
 - 表格对外用 `name`（如 `tbl_abc123`），界面显示名是 `title`。写记录用字段的 `column_name`。
+- 移动侧栏位置用 `move`，`--id` 是 `workspace` 返回的节点 `id`，不是 `tbl_` / `n_`。`--folder` 是目标文件夹节点 id，`root` 表示根目录。
+- `PATCH /api/notes/:id` 的 `parent_id` 是旧的笔记套笔记，不要用来换文件夹。
 - `scope=groups` 的 Key 只能访问所选文件夹里的表和笔记。
 - 笔记树用 `parent_id` 还原层级。
 - 鉴权头是 `X-API-Key`。只读 Key 不能写。

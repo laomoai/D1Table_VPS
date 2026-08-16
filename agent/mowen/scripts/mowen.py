@@ -107,6 +107,9 @@ def main() -> None:
     s.add_argument("--id", required=True)
 
     sub.add_parser("workspace", help="侧栏工作区树")
+    s = sub.add_parser("move", help="把表格/笔记/文件夹移到另一个文件夹")
+    s.add_argument("--id", required=True, help="工作区节点 id（workspace 里的 id）")
+    s.add_argument("--folder", default="", help="目标文件夹节点 id；省略或 root 表示工作区根目录")
     sub.add_parser("groups", help="文件夹/组")
 
     args = p.parse_args()
@@ -154,6 +157,10 @@ def main() -> None:
         dumps(request("POST", f"/api/notes/{args.id}/unarchive"))
     elif c == "workspace":
         dumps(request("GET", "/api/workspace/tree"))
+    elif c == "move":
+        folder = (args.folder or "").strip()
+        parent_id = None if folder in ("", "root", "null") else folder
+        dumps(request("POST", "/api/workspace/move", {"id": args.id, "parent_id": parent_id}))
     elif c == "groups":
         dumps(request("GET", "/api/groups"))
 

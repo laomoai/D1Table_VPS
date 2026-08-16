@@ -90,6 +90,15 @@ const TOOLS = [
     },
   },
   { name: "workspace_tree", description: "侧栏工作区树（文件夹 / 表格 / 笔记）", inputSchema: { type: "object", properties: {} } },
+  {
+    name: "move_node",
+    description: "把表格、笔记或文件夹移到另一个文件夹。id 和 folder 用 workspace_tree 的节点 id；folder 为空或 root 表示根目录。",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, folder: { type: "string", description: "目标文件夹节点 id，省略则到根目录" } },
+      required: ["id"],
+    },
+  },
   { name: "list_groups", description: "文件夹（组）列表", inputSchema: { type: "object", properties: {} } },
 ];
 
@@ -149,6 +158,11 @@ async function callTool(name, args = {}) {
       });
     case "workspace_tree":
       return api("GET", "/api/workspace/tree");
+    case "move_node": {
+      const folder = String(args.folder || "").trim();
+      const parent_id = !folder || folder === "root" || folder === "null" ? null : folder;
+      return api("POST", "/api/workspace/move", { id: args.id, parent_id });
+    }
     case "list_groups":
       return api("GET", "/api/groups");
     default:

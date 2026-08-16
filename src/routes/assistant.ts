@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware } from '../middleware/auth'
-import { createFolder, listWorkspaceNodes, expandTablesAcrossFolders, ensureTableNode, ensureNoteNode, updateNodeTitleByRef } from '../utils/workspace'
+import { createFolder, listWorkspaceNodes, expandTablesAcrossFolders, ensureTableNode, ensureNoteNode, updateNodeTitleByRef, moveNode } from '../utils/workspace'
 import { getUserTables, isValidIdentifier } from '../utils/schema-cache'
 
 const assistant = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -225,6 +225,23 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'move_node',
+      description: '把表格、笔记或文件夹移到另一个文件夹。可先 list_workspace。当前打开的表/笔记可不传 id。folder 为空或 root 表示工作区根目录。',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: '工作区节点 id，或表格 name，或笔记 id' },
+          table_name: { type: 'string' },
+          note_id: { type: 'string' },
+          folder: { type: 'string', description: '目标文件夹节点 id 或文件夹标题；root 表示根目录' },
+          folder_id: { type: 'string' },
+        },
+      },
+    },
+  },
 ]
 
 const SYSTEM = `你是墨问里的工作区助手。用户用中文说话。
@@ -235,7 +252,8 @@ const SYSTEM = `你是墨问里的工作区助手。用户用中文说话。
 - 改当前笔记标题或正文：update_note。
 - 新建笔记：propose_note，等用户确认。
 - 新建表 / 给表加字段：propose_table / propose_fields，等用户确认。
-改结构（建表、加字段、建整篇新笔记）要确认；改记录和改已有笔记可以直接执行并告诉用户结果。
+- 把表格或笔记换到别的文件夹：move_node，可直接执行。先 list_workspace 对上文件夹标题。
+改结构（建表、加字段、建整篇新笔记）要确认；改记录、改已有笔记、移动可以直接执行并告诉用户结果。
 回复用简短中文 Markdown。`
 
 function fieldTypeToSqlite(t: string): 'TEXT' | 'INTEGER' {
@@ -394,6 +412,54 @@ async function deleteRecord(db: Env['DB'], tableName: string, id: number, userId
   return { ok: true, id }
 }
 
+async function resolveWorkspaceNodes(c: { env: Env; get: (k: string) => unknown }) {
+  const teamId = c.get('teamId') as number | undefined
+  return expandTablesAcrossFolders(c.env.DB, teamId, await listWorkspaceNodes(c.env.DB, teamId))
+}
+
+function pickNode(
+  nodes: Awaited<ReturnType<typeof listWorkspaceNodes>>,
+  raw: string,
+  kind?: 'folder' | 'table' | 'note',
+) {
+  const key = raw.trim()
+  if (!key) return null
+  const pool = kind ? nodes.filter((n) => n.kind === kind) : nodes
+  const byId = pool.find((n) => n.id === key || n.id.startsWith(`${key}::`))
+  if (byId) return byId
+  const byRef = pool.find((n) => n.ref === key)
+  if (byRef) return byRef
+  const titled = pool.filter((n) => n.title === key)
+  if (titled.length === 1) return titled[0]
+  if (titled.length > 1) throw new Error(`有多份叫「${key}」的${kind === 'folder' ? '文件夹' : '项目'}，请用 id`)
+  return null
+}
+
+async function moveWorkspaceItem(
+  c: { env: Env; get: (k: string) => unknown },
+  args: { id?: string; table_name?: string; note_id?: string; folder?: string; folder_id?: string },
+  ctx?: { table?: string | null; note?: string | null },
+) {
+  const nodes = await resolveWorkspaceNodes(c)
+  const rawId = String(args.id || args.table_name || args.note_id || ctx?.table || ctx?.note || '').trim()
+  if (!rawId) throw new Error('请指定要移动的表格、笔记或节点 id')
+  const node = pickNode(nodes, rawId)
+  if (!node) throw new Error('找不到要移动的项目')
+  const folderRaw = String(args.folder_id || args.folder || '').trim()
+  let parentId: string | null = null
+  if (folderRaw && folderRaw !== 'root' && folderRaw !== 'null') {
+    const folder = pickNode(nodes, folderRaw, 'folder')
+    if (!folder) throw new Error(`找不到文件夹「${folderRaw}」`)
+    parentId = folder.id
+  }
+  await moveNode(c.env.DB, {
+    id: node.id,
+    parentId,
+    teamId: c.get('teamId') as number | undefined,
+  })
+  return { ok: true, id: node.id, kind: node.kind, title: node.title, parent_id: parentId }
+}
+
 async function updateNote(db: Env['DB'], noteId: string, title?: string, content?: string) {
   const row = await db.prepare(
     `SELECT id, archived_at FROM _notes WHERE id = ? AND deleted_at IS NULL`,
@@ -497,6 +563,7 @@ assistant.post('/chat', async (c) => {
     insert_record: '新增记录',
     update_record: '更新记录',
     delete_record: '删除记录',
+    move_node: '移动到文件夹',
     propose_fields: '准备添加字段',
     propose_table: '准备新建表格',
     propose_note: '准备新建笔记',
@@ -525,6 +592,7 @@ assistant.post('/chat', async (c) => {
           limit?: number
           values?: Record<string, unknown>
           content?: string
+          folder?: string
         }
         steps.push({ name: call.function.name, label: stepLabel[call.function.name] || call.function.name })
         if (call.function.name === 'list_workspace') {
@@ -598,6 +666,16 @@ assistant.post('/chat', async (c) => {
           const name = resolveTableName(args.table_name, ctx?.table)
           result = await deleteRecord(c.env.DB, name, Number(args.id), c.get('userId') ?? null, c.get('teamId') ?? null)
           if ((result as { ok?: boolean }).ok) mutated = true
+        } else if (call.function.name === 'move_node') {
+          assertWritable(c)
+          result = await moveWorkspaceItem(c, {
+            id: args.id != null ? String(args.id) : undefined,
+            table_name: args.table_name,
+            note_id: args.note_id,
+            folder: args.folder as string | undefined,
+            folder_id: args.folder_id,
+          }, ctx)
+          mutated = true
         } else if (call.function.name === 'propose_table') {
           if (!args.title || !Array.isArray(args.fields) || args.fields.length === 0) {
             result = { error: 'title 和 fields 必填' }
