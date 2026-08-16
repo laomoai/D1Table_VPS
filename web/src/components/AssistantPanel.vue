@@ -1,21 +1,21 @@
 <template>
-  <aside class="asst" :class="{ collapsed }">
-    <button class="asst-toggle" type="button" :title="collapsed ? '打开助手' : '收起助手'" @click="collapsed = !collapsed">
-      {{ collapsed ? '助手' : '收起' }}
-    </button>
-    <div v-if="!collapsed" class="asst-body">
-      <div class="asst-head">助手</div>
+  <aside class="asst">
+    <div class="asst-body">
+      <div class="asst-head">
+        <span>AI 助手</span>
+        <button class="asst-close" type="button" title="收起" @click="emit('update:open', false)">×</button>
+      </div>
+      <div v-if="pageHint" class="asst-ctx">当前：{{ pageHint }}</div>
       <div ref="listEl" class="asst-list">
         <div v-if="messages.length === 0" class="asst-empty">
-          可以说：帮我在「学习」文件夹下建一张学习时间记录表。
+          可以说：帮我给当前表格加上账号密码字段。
         </div>
         <div v-for="(m, i) in messages" :key="i" class="asst-msg" :class="m.role">
-          <div class="asst-bubble">{{ m.content }}</div>
+          <div v-if="m.role === 'user'" class="asst-bubble">{{ m.content }}</div>
+          <div v-else class="asst-bubble md" v-html="renderSafe(m.content)" />
           <div v-if="m.draft" class="asst-draft">
-            <div class="asst-draft-title">{{ m.draft.title }}</div>
-            <div class="asst-draft-meta">
-              {{ m.draft.folder_title ? `文件夹：${m.draft.folder_title}` : '工作区根目录' }}
-            </div>
+            <div class="asst-draft-title">{{ draftTitle(m.draft) }}</div>
+            <div class="asst-draft-meta">{{ draftMeta(m.draft) }}</div>
             <ul>
               <li v-for="(f, fi) in m.draft.fields" :key="fi">{{ f.title }} · {{ typeLabel(f.field_type) }}</li>
             </ul>
@@ -25,7 +25,7 @@
               type="button"
               :disabled="busy"
               @click="confirmDraft(m)"
-            >确认创建</button>
+            >{{ m.draft.action === 'add_fields' ? '确认添加字段' : '确认创建' }}</button>
           </div>
         </div>
       </div>
@@ -38,19 +38,21 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useMessage } from 'naive-ui'
-import { assistantApi, type TableDraft } from '@/api/client'
+import DOMPurify from 'dompurify'
+import { assistantApi, type TableDraft, type WorkspaceNode } from '@/api/client'
+import { renderMarkdown } from '@/utils/markdown'
+import { refreshWorkspace } from '@/composables/workspaceNav'
 
+defineProps<{ open: boolean }>()
+const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 const router = useRouter()
+const route = useRoute()
 const queryClient = useQueryClient()
 const message = useMessage()
-
-const COLLAPSE_KEY = 'mowen_assistant_collapsed'
-const collapsed = ref(localStorage.getItem(COLLAPSE_KEY) !== '0')
-watch(collapsed, (v) => localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'))
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string; draft?: TableDraft; done?: boolean }
 const messages = ref<ChatMsg[]>([])
@@ -62,8 +64,49 @@ function typeLabel(t: string) {
   const map: Record<string, string> = {
     text: '文本', longtext: '长文本', number: '数字', date: '日期',
     datetime: '日期时间', select: '选项', checkbox: '勾选',
+    password: '密码', totp: '验证码',
   }
   return map[t] || t
+}
+
+function renderSafe(md: string) {
+  return DOMPurify.sanitize(renderMarkdown(md || ''))
+}
+
+function draftTitle(d: TableDraft) {
+  return d.action === 'add_fields' ? `给「${d.title || d.table_name}」加字段` : (d.title || '新表格')
+}
+
+function draftMeta(d: TableDraft) {
+  if (d.action === 'add_fields') return `表格：${d.table_name}`
+  return d.folder_title ? `文件夹：${d.folder_title}` : '工作区根目录'
+}
+
+const pageHint = computed(() => {
+  const table = typeof route.params.tableName === 'string' ? route.params.tableName : ''
+  const note = typeof route.params.noteId === 'string' ? route.params.noteId : ''
+  const nodes = queryClient.getQueryData<WorkspaceNode[]>(['workspace']) ?? []
+  if (table) {
+    const hit = nodes.find((n) => n.kind === 'table' && n.ref === table)
+    return `表格「${hit?.title || table}」`
+  }
+  if (note) {
+    const hit = nodes.find((n) => n.kind === 'note' && n.ref === note)
+    return `笔记「${hit?.title || note}」`
+  }
+  return ''
+})
+
+function currentContext() {
+  const table = typeof route.params.tableName === 'string' ? route.params.tableName : null
+  const note = typeof route.params.noteId === 'string' ? route.params.noteId : null
+  const nodes = queryClient.getQueryData<WorkspaceNode[]>(['workspace']) ?? []
+  return {
+    table,
+    table_title: table ? (nodes.find((n) => n.kind === 'table' && n.ref === table)?.title ?? null) : null,
+    note,
+    note_title: note ? (nodes.find((n) => n.kind === 'note' && n.ref === note)?.title ?? null) : null,
+  }
 }
 
 async function scrollBottom() {
@@ -80,7 +123,7 @@ async function send() {
   await scrollBottom()
   try {
     const payload = messages.value.map((m) => ({ role: m.role, content: m.content }))
-    const data = await assistantApi.chat(payload)
+    const data = await assistantApi.chat(payload, currentContext())
     messages.value.push({ role: 'assistant', content: data.reply, draft: data.draft ?? undefined })
   } catch (err) {
     messages.value.push({ role: 'assistant', content: (err as Error).message })
@@ -96,10 +139,17 @@ async function confirmDraft(m: ChatMsg) {
   try {
     const created = await assistantApi.confirm(m.draft)
     m.done = true
-    messages.value.push({ role: 'assistant', content: `已创建「${created.title}」。` })
-    queryClient.invalidateQueries({ queryKey: ['workspace'] })
-    queryClient.invalidateQueries({ queryKey: ['tables'] })
-    router.push(`/tables/${created.name}`)
+    if (created.action === 'add_fields') {
+      messages.value.push({ role: 'assistant', content: `已给「${created.title}」加上：${(created.added || []).join('、') || '字段'}。` })
+    } else {
+      messages.value.push({ role: 'assistant', content: `已创建「${created.title}」。` })
+    }
+    await refreshWorkspace(queryClient)
+    queryClient.invalidateQueries({ queryKey: ['fields', created.name] })
+    queryClient.invalidateQueries({ queryKey: ['table', created.name] })
+    if (router.currentRoute.value.path !== `/tables/${created.name}`) {
+      router.push(`/tables/${created.name}`)
+    }
   } catch (err) {
     message.error((err as Error).message)
   } finally {
@@ -115,21 +165,8 @@ async function confirmDraft(m: ChatMsg) {
   display: flex;
   border-left: 1px solid #e9e9e7;
   background: #fbfbfa;
-  min-width: 36px;
+  width: 360px;
 }
-.asst.collapsed { width: 36px; }
-.asst:not(.collapsed) { width: 360px; }
-.asst-toggle {
-  width: 36px;
-  border: 0;
-  background: #f7f7f5;
-  color: #787774;
-  font-size: 12px;
-  writing-mode: vertical-rl;
-  letter-spacing: 2px;
-  cursor: pointer;
-}
-.asst-toggle:hover { color: #37352f; background: #efefed; }
 .asst-body {
   flex: 1;
   min-width: 0;
@@ -137,10 +174,30 @@ async function confirmDraft(m: ChatMsg) {
   flex-direction: column;
 }
 .asst-head {
-  padding: 14px 14px 10px;
+  padding: 12px 10px 10px 14px;
   font-size: 14px;
   font-weight: 600;
   border-bottom: 1px solid #e9e9e7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.asst-close {
+  border: 0;
+  background: transparent;
+  color: #9b9a97;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.asst-close:hover { color: #37352f; }
+.asst-ctx {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #7c5cff;
+  background: #f4f0ff;
+  border-bottom: 1px solid #ece6ff;
 }
 .asst-list {
   flex: 1;
@@ -162,6 +219,15 @@ async function confirmDraft(m: ChatMsg) {
 }
 .asst-msg.user .asst-bubble { background: #37352f; color: #fff; }
 .asst-msg.assistant .asst-bubble { background: #fff; border: 1px solid #e9e9e7; color: #37352f; }
+.asst-bubble.md :deep(p) { margin: 0 0 0.5em; }
+.asst-bubble.md :deep(p:last-child) { margin-bottom: 0; }
+.asst-bubble.md :deep(ul),
+.asst-bubble.md :deep(ol) { margin: 0.3em 0; padding-left: 1.2em; }
+.asst-bubble.md :deep(code) { font-size: 0.9em; background: #f1f1ef; padding: 0 4px; border-radius: 3px; }
+.asst-bubble.md :deep(pre) { overflow: auto; background: #f7f7f5; padding: 8px; border-radius: 6px; }
+.asst-bubble.md :deep(h1),
+.asst-bubble.md :deep(h2),
+.asst-bubble.md :deep(h3) { font-size: 13px; margin: 0.4em 0; }
 .asst-draft {
   margin-top: 6px;
   padding: 8px 10px;

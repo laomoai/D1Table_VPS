@@ -2,9 +2,34 @@
   <div class="app-layout" :class="{ resizing: isResizing }">
     <!-- Sidebar -->
     <aside class="sidebar" :style="{ width: sidebarWidth + 'px' }">
-      <div class="sidebar-header" @click="router.push('/')" style="cursor:pointer;">
-        <img src="/logo.svg" class="logo-img" alt="墨问" />
-        <span class="logo">墨问</span>
+      <div class="sidebar-header">
+        <button type="button" class="logo-btn" @click="router.push('/')">
+          <img src="/logo.svg" class="logo-img" alt="墨问" />
+          <span class="logo">墨问</span>
+        </button>
+        <button
+          type="button"
+          class="ai-launch"
+          :class="{ active: assistantOpen }"
+          title="AI 助手"
+          @click.stop="assistantOpen = !assistantOpen"
+        >
+          <span class="ai-launch-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <defs>
+                <linearGradient id="aiGrad" x1="2" y1="3" x2="22" y2="21" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#7C5CFF"/>
+                  <stop offset="0.55" stop-color="#3B82F6"/>
+                  <stop offset="1" stop-color="#22D3EE"/>
+                </linearGradient>
+              </defs>
+              <path fill="url(#aiGrad)" d="M12 2.2l1.15 4.4c.3 1.14 1.2 2.04 2.34 2.34L20 10l-4.51 1.06c-1.14.3-2.04 1.2-2.34 2.34L12 17.8l-1.15-4.4c-.3-1.14-1.2-2.04-2.34-2.34L4 10l4.51-1.06c1.14-.3 2.04-1.2 2.34-2.34L12 2.2z"/>
+              <circle cx="18.6" cy="5.2" r="1.35" fill="#F472B6"/>
+              <circle cx="6.2" cy="17.6" r="1.05" fill="#22D3EE"/>
+            </svg>
+          </span>
+          <span class="ai-launch-text">AI</span>
+        </button>
       </div>
 
       <div class="panel-header">
@@ -53,7 +78,6 @@
           />
         </div>
 
-        <!-- Knowledge Base entry -->
         <div
           class="kb-entry"
           :class="{ active: route.path.startsWith('/archive') || route.path.startsWith('/knowledge-base') }"
@@ -111,7 +135,7 @@
     <main class="main-content">
       <router-view />
     </main>
-    <AssistantPanel />
+    <AssistantPanel v-if="assistantOpen" v-model:open="assistantOpen" />
 
     <NotePreviewModal />
     <CreateTableModal v-model:show="showCreateTable" :folder-id="createTargetFolder" @created="onTableCreated" />
@@ -144,6 +168,7 @@ import {
   ShieldCheckmarkOutline as AdminIcon,
 } from '@vicons/ionicons5'
 import { api, notesApi, http, avatarUrl, workspaceApi, type TableMeta, type NoteListItem, type WorkspaceNode } from '@/api/client'
+import { refreshWorkspace, openWorkspaceNode } from '@/composables/workspaceNav'
 import { getCachedUser, resetAuthState } from '@/router'
 import { registerClipboardToast } from '@/utils/clipboard'
 import HoverTooltipText from './HoverTooltipText.vue'
@@ -220,8 +245,7 @@ function toggleWorkspaceFolder(id: string) {
 }
 
 function selectWorkspaceNode(node: WorkspaceNode) {
-  if (node.kind === 'table' && node.ref) router.push(`/tables/${node.ref}`)
-  if (node.kind === 'note' && node.ref) router.push(`/notes/${node.ref}`)
+  openWorkspaceNode(router, node)
 }
 
 const folderOptions = computed(() =>
@@ -293,7 +317,7 @@ async function onFolderIconSelect(icon: string | null) {
   showFolderIconPicker.value = false
   try {
     await workspaceApi.updateFolderIcon(folderIconTarget.value.id, icon)
-    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    await refreshWorkspace(queryClient)
   } catch (err) {
     message.error((err as Error).message)
   }
@@ -313,19 +337,27 @@ async function submitNameModal(name: string) {
     if (nameModalKind.value === 'rename' && renameTargetId.value) {
       await workspaceApi.renameFolder(renameTargetId.value, name)
     } else if (nameModalKind.value === 'note') {
+      const folderId = createTargetFolder.value
       const result = await notesApi.createNote({
         title: name,
-        folder_id: createTargetFolder.value,
+        folder_id: folderId,
       })
+      if (folderId) expandedWorkspace.add(folderId)
+      saveExpandedWs()
       createTargetFolder.value = null
-      queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
+      showNameModal.value = false
+      await refreshWorkspace(queryClient)
       router.push(`/notes/${result.id}`)
+      return
     } else {
-      await workspaceApi.createFolder({ title: name, parent_id: createTargetFolder.value })
+      const folder = await workspaceApi.createFolder({ title: name, parent_id: createTargetFolder.value })
+      if (createTargetFolder.value) expandedWorkspace.add(createTargetFolder.value)
+      if (folder?.id) expandedWorkspace.add(folder.id)
+      saveExpandedWs()
       createTargetFolder.value = null
     }
     showNameModal.value = false
-    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    await refreshWorkspace(queryClient)
   } catch (err) {
     message.error((err as Error).message)
   }
@@ -334,7 +366,7 @@ async function submitNameModal(name: string) {
 async function onManageMove(payload: { id: string; parent_id: string | null }) {
   try {
     await workspaceApi.move({ id: payload.id, parent_id: payload.parent_id })
-    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    await refreshWorkspace(queryClient)
   } catch (err) {
     message.error((err as Error).message)
   }
@@ -345,10 +377,14 @@ function openCreateTable() {
   showCreateTable.value = true
 }
 
-function onTableCreated(name: string) {
-  queryClient.invalidateQueries({ queryKey: ['workspace'] })
-  router.push(`/tables/${name}`)
+async function onTableCreated(name: string) {
+  if (createTargetFolder.value) {
+    expandedWorkspace.add(createTargetFolder.value)
+    saveExpandedWs()
+  }
   createTargetFolder.value = null
+  await refreshWorkspace(queryClient)
+  router.push(`/tables/${name}`)
 }
 
 function onArchiveNode(node: WorkspaceNode) {
@@ -361,9 +397,7 @@ function onArchiveNode(node: WorkspaceNode) {
     onPositiveClick: async () => {
       try {
         await workspaceApi.archiveFolder(node.id)
-        queryClient.invalidateQueries({ queryKey: ['workspace'] })
-        queryClient.invalidateQueries({ queryKey: ['tables'] })
-        queryClient.invalidateQueries({ queryKey: ['notes'] })
+        await refreshWorkspace(queryClient)
         queryClient.invalidateQueries({ queryKey: ['workspace', 'archived'] })
         message.success('已收入归档架')
       } catch (err) {
@@ -382,7 +416,7 @@ function onDeleteFolder(id: string) {
     onPositiveClick: async () => {
       try {
         await workspaceApi.deleteFolder(id)
-        queryClient.invalidateQueries({ queryKey: ['workspace'] })
+        await refreshWorkspace(queryClient)
       } catch (err) {
         message.error((err as Error).message)
       }
@@ -397,7 +431,7 @@ async function handleWorkspaceReorder(payload: { dragId: string; dropId: string;
   const parentId = payload.mode === 'child' && drop.kind === 'folder' ? drop.id : drop.parent_id
   try {
     await workspaceApi.move({ id: payload.dragId, parent_id: parentId, sort_order: drop.sort_order })
-    queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    await refreshWorkspace(queryClient)
   } catch (err) {
     message.error((err as Error).message)
   }
@@ -919,6 +953,9 @@ async function handleNoteReorder({ dragId, dropId, mode }: { dragId: string; dro
 // ── User menu ───────────────────────────────────────────────────
 const currentUser = ref(getCachedUser())
 const showUserMenu = ref(false)
+const ASSIST_KEY = 'mowen_assistant_collapsed'
+const assistantOpen = ref(localStorage.getItem(ASSIST_KEY) !== '1')
+watch(assistantOpen, (v) => localStorage.setItem(ASSIST_KEY, v ? '0' : '1'))
 
 watch(() => route.fullPath, () => {
   currentUser.value = getCachedUser()
@@ -1015,6 +1052,16 @@ async function logout() {
   gap: 8px;
   flex-shrink: 0;
 }
+.logo-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  min-width: 0;
+}
 .logo-img {
   width: 26px;
   height: 26px;
@@ -1027,6 +1074,32 @@ async function logout() {
   font-weight: 700;
   color: #37352f;
   letter-spacing: 0;
+}
+.ai-launch {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  padding: 4px 8px 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #37352f;
+  flex-shrink: 0;
+}
+.ai-launch:hover,
+.ai-launch.active {
+  background: #efeafd;
+}
+.ai-launch-icon {
+  display: flex;
+  align-items: center;
+}
+.ai-launch-text {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
 /* ── Tabs ──────────────────────────────────────────────────── */

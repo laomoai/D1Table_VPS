@@ -440,18 +440,22 @@ export async function expandTablesAcrossFolders(
     for (const name of namesByGroup.get(folder.group_id!) ?? []) {
       const base = tableByRef.get(name)
       if (!base) continue
-      expanded.push({
-        ...base,
-        id: `${base.id}::${folder.id}`,
-        parent_id: folder.id,
-      })
+      if (base.parent_id === folder.id) {
+        expanded.push({ ...base })
+      } else {
+        expanded.push({
+          ...base,
+          id: `${base.id}::${folder.id}`,
+          parent_id: folder.id,
+        })
+      }
       placed.add(name)
     }
   }
 
   for (const table of tables) {
     if (table.ref && !placed.has(table.ref)) {
-      expanded.push({ ...table, parent_id: null })
+      expanded.push({ ...table })
     }
   }
   return expanded

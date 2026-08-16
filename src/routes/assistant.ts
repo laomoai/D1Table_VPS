@@ -8,12 +8,14 @@ const assistant = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
 export type DraftField = {
   title: string
-  field_type: 'text' | 'longtext' | 'number' | 'date' | 'datetime' | 'select' | 'checkbox'
+  field_type: 'text' | 'longtext' | 'number' | 'date' | 'datetime' | 'select' | 'checkbox' | 'password' | 'totp'
   options?: string[]
 }
 
 export type TableDraft = {
-  title: string
+  action?: 'create_table' | 'add_fields'
+  table_name?: string
+  title?: string
   folder_title?: string
   folder_id?: string | null
   create_folder?: boolean
@@ -33,8 +35,47 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_table_schema',
+      description: '读取一张已有表的字段。改当前打开的表之前先调用。',
+      parameters: {
+        type: 'object',
+        properties: { table_name: { type: 'string' } },
+        required: ['table_name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_fields',
+      description: '给已有表增加字段的草案，不要直接改表。用户说「这个表」「当前表」「新增字段」时必须用这个，不要 propose_table。',
+      parameters: {
+        type: 'object',
+        properties: {
+          table_name: { type: 'string' },
+          note: { type: 'string' },
+          fields: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                field_type: { type: 'string', enum: ['text', 'longtext', 'number', 'date', 'datetime', 'select', 'checkbox', 'password', 'totp'] },
+                options: { type: 'array', items: { type: 'string' } },
+              },
+              required: ['title', 'field_type'],
+            },
+          },
+        },
+        required: ['table_name', 'fields'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'propose_table',
-      description: '提出一张待确认的新表草案，不要直接建表。学习时间记录之类应给出日期、科目、开始、结束、时长、备注等合理字段。',
+      description: '仅当用户明确要新建一张表时才用。给已有表加字段请用 propose_fields。',
       parameters: {
         type: 'object',
         properties: {
@@ -63,13 +104,15 @@ const TOOLS = [
 ]
 
 const SYSTEM = `你是墨问里的工作区助手。用户用中文说话。
-你只能通过工具了解和提议改动，不能假装已经建好了表。
-要建表时必须调用 propose_table，等用户在界面点确认后才会真正创建。
-学习时间记录：默认字段建议为日期(date)、科目(text 或 select)、开始时间(datetime)、结束时间(datetime)、时长分钟(number)、备注(longtext)。可按用户说法调整。
-先 list_workspace 再提议，以便把表放到已有文件夹。找不到文件夹且用户提到了文件夹名时，create_folder=true。
-回复简短中文，说明你准备建什么、放在哪。不要编造不存在的表。`
+你只能通过工具了解和提议改动，不能假装已经改好了。
+系统会告诉你用户当前打开的表格或笔记。
+- 用户说「这个表格」「当前表」「把字段新增为…」「改成适合…」且当前打开了表格：必须 get_table_schema 后 propose_fields，绝不要 propose_table。
+- 只有用户明确说「新建一张表」「再做一张」时才 propose_table。
+账号密码管理建议字段：名称(text)、账号(text)、密码(password)、网址(text)、备注(longtext)；可选 TOTP(totp)、分类(select)。已有同名/同类字段不要重复加。
+学习时间记录建新表：日期、科目、开始、结束、时长、备注。
+先 list_workspace 再新建表。回复用简短中文 Markdown。`
 
-function fieldTypeToSqlite(t: DraftField['field_type']): 'TEXT' | 'INTEGER' {
+function fieldTypeToSqlite(t: string): 'TEXT' | 'INTEGER' {
   if (t === 'number' || t === 'checkbox' || t === 'date' || t === 'datetime') return 'INTEGER'
   return 'TEXT'
 }
@@ -87,6 +130,21 @@ async function listWorkspaceBrief(c: { env: Env; get: (k: string) => unknown }) 
   return nodes
     .filter((n) => n.kind === 'folder' || n.kind === 'table')
     .map((n) => ({ id: n.id, kind: n.kind, title: n.title, parent_id: n.parent_id, ref: n.ref }))
+}
+
+async function getTableSchema(db: Env['DB'], tableName: string) {
+  const rows = await db.prepare(
+    `SELECT column_name, title, field_type FROM _field_meta WHERE table_name = ? ORDER BY order_index ASC`,
+  ).bind(tableName).all<{ column_name: string; title: string; field_type: string }>()
+  return { table_name: tableName, fields: rows.results ?? [] }
+}
+
+function normalizeFields(fields: DraftField[]): DraftField[] {
+  return fields.map((f) => ({
+    title: String(f.title || '').trim(),
+    field_type: f.field_type,
+    options: f.options,
+  })).filter((f) => f.title)
 }
 
 async function llmChat(apiKey: string, messages: unknown[]) {
@@ -124,14 +182,26 @@ assistant.post('/chat', async (c) => {
   if (!apiKey) {
     return c.json({ error: { code: 'NOT_CONFIGURED', message: '未配置 DEEPSEEK_API_KEY，无法使用助手' } }, 503)
   }
-  const body = await c.req.json<{ messages?: Array<{ role: string; content: string }> }>().catch(() => ({ messages: [] as Array<{ role: string; content: string }> }))
+  const body = await c.req.json<{
+    messages?: Array<{ role: string; content: string }>
+    context?: { table?: string | null; table_title?: string | null; note?: string | null; note_title?: string | null }
+  }>().catch(() => ({ messages: [] as Array<{ role: string; content: string }>, context: undefined }))
   const incoming = (body.messages ?? []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
   if (incoming.length === 0) {
     return c.json({ error: { code: 'INVALID_BODY', message: '请输入内容' } }, 400)
   }
 
+  const ctx = body.context
+  let contextLine = '当前没有打开表格或笔记。'
+  if (ctx?.table) {
+    contextLine = `用户当前打开的表格：table_name=${ctx.table}${ctx.table_title ? `，标题「${ctx.table_title}」` : ''}。改字段必须用 propose_fields，table_name 用这个。`
+  } else if (ctx?.note) {
+    contextLine = `用户当前打开的笔记：id=${ctx.note}${ctx.note_title ? `，标题「${ctx.note_title}」` : ''}。`
+  }
+
   const messages: Array<Record<string, unknown>> = [
     { role: 'system', content: SYSTEM },
+    { role: 'system', content: contextLine },
     ...incoming.slice(-16),
   ]
 
@@ -153,23 +223,39 @@ assistant.post('/chat', async (c) => {
     for (const call of calls) {
       let result: unknown = { ok: false }
       try {
-        const args = JSON.parse(call.function.arguments || '{}') as TableDraft
+        const args = JSON.parse(call.function.arguments || '{}') as TableDraft & { table_name?: string }
         if (call.function.name === 'list_workspace') {
           result = await listWorkspaceBrief(c)
+        } else if (call.function.name === 'get_table_schema') {
+          const name = String(args.table_name || ctx?.table || '').trim()
+          if (!name) result = { error: '缺少 table_name' }
+          else result = await getTableSchema(c.env.DB, name)
+        } else if (call.function.name === 'propose_fields') {
+          const tableName = String(args.table_name || ctx?.table || '').trim()
+          const fields = normalizeFields(args.fields || [])
+          if (!tableName || fields.length === 0) {
+            result = { error: 'table_name 和 fields 必填' }
+          } else {
+            draft = {
+              action: 'add_fields',
+              table_name: tableName,
+              title: ctx?.table_title || tableName,
+              fields,
+              note: args.note,
+            }
+            result = { ok: true, waiting_for_user_confirm: true, draft }
+          }
         } else if (call.function.name === 'propose_table') {
           if (!args.title || !Array.isArray(args.fields) || args.fields.length === 0) {
             result = { error: 'title 和 fields 必填' }
           } else {
             draft = {
+              action: 'create_table',
               title: String(args.title).trim(),
               folder_title: args.folder_title?.trim(),
               folder_id: args.folder_id || null,
               create_folder: !!args.create_folder,
-              fields: args.fields.map((f) => ({
-                title: String(f.title || '').trim(),
-                field_type: f.field_type,
-                options: f.options,
-              })).filter((f) => f.title),
+              fields: normalizeFields(args.fields),
               note: args.note,
             }
             result = { ok: true, waiting_for_user_confirm: true, draft }
@@ -189,9 +275,11 @@ assistant.post('/chat', async (c) => {
   }
 
   if (!reply) {
-    reply = draft
-      ? `准备建「${draft.title}」。请确认下面的字段后，我再真正创建。`
-      : '我这边没有得到明确回复，请再说一次。'
+    reply = draft?.action === 'add_fields'
+      ? `准备给当前表增加 ${draft.fields.length} 个字段，确认后才会写入。`
+      : draft
+        ? `准备建「${draft.title}」。请确认下面的字段后，我再真正创建。`
+        : '我这边没有得到明确回复，请再说一次。'
   }
 
   return c.json({ data: { reply, draft } })
@@ -200,7 +288,50 @@ assistant.post('/chat', async (c) => {
 assistant.post('/confirm', requireWriteMiddleware, async (c) => {
   const body = await c.req.json<{ draft?: TableDraft }>().catch(() => ({ draft: undefined as TableDraft | undefined }))
   const draft = body.draft
-  if (!draft?.title || !draft.fields?.length) {
+  if (!draft?.fields?.length) {
+    return c.json({ error: { code: 'INVALID_BODY', message: '没有可确认的草案' } }, 400)
+  }
+
+  if (draft.action === 'add_fields') {
+    const tableName = String(draft.table_name || '').trim()
+    const tables = await getUserTables(c.env.DB)
+    if (!tableName || !tables.includes(tableName)) {
+      return c.json({ error: { code: 'NOT_FOUND', message: '找不到要改的表格' } }, 404)
+    }
+    const existing = await c.env.DB.prepare(
+      `SELECT title FROM _field_meta WHERE table_name = ?`,
+    ).bind(tableName).all<{ title: string }>()
+    const have = new Set((existing.results ?? []).map((r) => (r.title || '').trim().toLowerCase()))
+    const maxOrder = await c.env.DB.prepare(
+      `SELECT COALESCE(MAX(order_index), 0) as max_order FROM _field_meta WHERE table_name = ?`,
+    ).bind(tableName).first<{ max_order: number }>()
+    let order = maxOrder?.max_order ?? 0
+    const added: string[] = []
+    for (const f of draft.fields) {
+      const title = f.title.trim()
+      if (!title || have.has(title.toLowerCase())) continue
+      const columnName = randomId('col_', 4)
+      const sqliteType = fieldTypeToSqlite(f.field_type)
+      const select_options = f.field_type === 'select' && f.options?.length
+        ? JSON.stringify(f.options.map((label, i) => ({
+          value: label, label, color: ['#4f6ef7', '#18a058', '#f0a020', '#d03050', '#8a2be2'][i % 5],
+        })))
+        : null
+      order += 10
+      await c.env.DB.batch([
+        c.env.DB.prepare(`ALTER TABLE "${tableName}" ADD COLUMN "${columnName}" ${sqliteType}`),
+        c.env.DB.prepare(
+          `INSERT INTO _field_meta (table_name, column_name, title, field_type, select_options, order_index, width)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(tableName, columnName, title, f.field_type, select_options, order, 180),
+      ])
+      have.add(title.toLowerCase())
+      added.push(title)
+    }
+    return c.json({ data: { name: tableName, title: draft.title || tableName, folder_id: null, action: 'add_fields', added } })
+  }
+
+  if (!draft.title) {
     return c.json({ error: { code: 'INVALID_BODY', message: '没有可确认的草案' } }, 400)
   }
 
