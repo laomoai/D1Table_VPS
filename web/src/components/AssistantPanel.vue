@@ -23,7 +23,6 @@
           <span class="asst-hist-time">{{ formatTime(t.updatedAt) }}</span>
         </button>
       </div>
-      <div v-if="pageHint" class="asst-ctx">当前：{{ pageHint }}</div>
       <div ref="listEl" class="asst-list">
         <div v-if="messages.length === 0 && !busy" class="asst-empty">
           可以说：帮我把这段存成新笔记，或给当前表格加字段。
@@ -208,21 +207,6 @@ function notePreview(content?: string) {
   return t.length > 160 ? `${t.slice(0, 160)}…` : t
 }
 
-const pageHint = computed(() => {
-  const table = typeof route.params.tableName === 'string' ? route.params.tableName : ''
-  const note = typeof route.params.noteId === 'string' ? route.params.noteId : ''
-  const nodes = queryClient.getQueryData<WorkspaceNode[]>(['workspace']) ?? []
-  if (table) {
-    const hit = nodes.find((n) => n.kind === 'table' && n.ref === table)
-    return `表格「${hit?.title || table}」`
-  }
-  if (note) {
-    const hit = nodes.find((n) => n.kind === 'note' && n.ref === note)
-    return `笔记「${hit?.title || note}」`
-  }
-  return ''
-})
-
 function currentContext() {
   const table = typeof route.params.tableName === 'string' ? route.params.tableName : null
   const note = typeof route.params.noteId === 'string' ? route.params.noteId : null
@@ -384,13 +368,6 @@ async function confirmDraft(m: ChatMsg) {
   padding: 2px 6px;
 }
 .asst-close:hover { color: #37352f; }
-.asst-ctx {
-  padding: 6px 14px;
-  font-size: 12px;
-  color: #7c5cff;
-  background: #f4f0ff;
-  border-bottom: 1px solid #ece6ff;
-}
 .asst-list {
   flex: 1;
   overflow-y: auto;
