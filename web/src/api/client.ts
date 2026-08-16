@@ -410,7 +410,7 @@ export const assistantApi = {
       thread_id: string
       title: string
       summary: string
-      messages: Array<{ role: 'user' | 'assistant'; content: string; draft?: TableDraft; steps?: AssistantStep[]; topic?: string; done?: boolean }>
+      messages: Array<{ role: 'user' | 'assistant'; content: string; draft?: TableDraft; steps?: AssistantStep[]; topic?: string; done?: boolean; created_at?: number; id?: string }>
       topics: AssistantTopic[]
     } }>('/assistant/thread').then((r) => r.data.data),
   chat: (

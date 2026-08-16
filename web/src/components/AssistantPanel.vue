@@ -10,28 +10,19 @@
       <div class="asst-head">
         <span>AI 助手</span>
         <div class="asst-head-actions">
-          <button class="asst-icon-btn" type="button" title="历史话题" :class="{ on: showHistory }" @click="showHistory = !showHistory">记录</button>
           <button class="asst-close" type="button" title="收起" @click="emit('update:open', false)">×</button>
         </div>
-      </div>
-      <div v-if="showHistory" class="asst-history">
-        <div v-if="topics.length === 0" class="asst-empty">还没有分开的话题，接着问即可</div>
-        <button
-          v-for="t in topics"
-          :key="t.id"
-          class="asst-hist-item"
-          type="button"
-          @click="jumpTopic(t.id)"
-        >
-          <span class="asst-hist-title">{{ t.title }}</span>
-          <span class="asst-hist-time">{{ formatTime(t.created_at * 1000) }}</span>
-        </button>
       </div>
       <div ref="listEl" class="asst-list">
         <div v-if="messages.length === 0 && !busy" class="asst-empty">
           可以说：帮我把这段存成新笔记，或给当前表格加字段。
         </div>
         <div v-for="(m, i) in messages" :key="m.id || i" class="asst-msg" :class="m.role" :data-mid="m.id">
+          <div class="asst-meta">
+            <span class="asst-who">{{ m.role === 'user' ? '你' : '助手' }}</span>
+            <span class="asst-time">{{ formatMsgTime(m.created_at) }}</span>
+            <button class="asst-copy" type="button" title="复制" @click="copyMsg(m)">复制</button>
+          </div>
           <div v-if="m.role === 'user'" class="asst-bubble">{{ m.content }}</div>
           <template v-else>
             <div v-if="m.steps?.length" class="asst-steps">
@@ -76,7 +67,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useMessage } from 'naive-ui'
 import DOMPurify from 'dompurify'
-import { assistantApi, type AssistantStep, type AssistantTopic, type TableDraft, type WorkspaceNode } from '@/api/client'
+import { assistantApi, type AssistantStep, type TableDraft, type WorkspaceNode } from '@/api/client'
 import { renderMarkdown } from '@/utils/markdown'
 import { refreshWorkspace } from '@/composables/workspaceNav'
 
@@ -95,16 +86,15 @@ type ChatMsg = {
   steps?: AssistantStep[]
   topic?: string
   id?: string
+  created_at?: number
 }
 
 const WIDTH_KEY = 'mowen_assistant_width'
 const width = ref(parseInt(localStorage.getItem(WIDTH_KEY) || '360', 10) || 360)
 const resizing = ref(false)
 const messages = ref<ChatMsg[]>([])
-const topics = ref<AssistantTopic[]>([])
 const input = ref('')
 const busy = ref(false)
-const showHistory = ref(false)
 const listEl = ref<HTMLElement | null>(null)
 const thinkingLabel = ref('思考中…')
 let thinkTimer: number | null = null
@@ -144,26 +134,31 @@ function stopThinking() {
   }
 }
 
-function formatTime(ts: number) {
-  const d = new Date(ts)
-  const mm = `${d.getMonth() + 1}`.padStart(2, '0')
-  const dd = `${d.getDate()}`.padStart(2, '0')
+function formatMsgTime(ts?: number) {
+  if (!ts) return ''
+  const d = new Date(ts < 1e12 ? ts * 1000 : ts)
+  const now = new Date()
   const hh = `${d.getHours()}`.padStart(2, '0')
   const mi = `${d.getMinutes()}`.padStart(2, '0')
+  if (d.toDateString() === now.toDateString()) return `${hh}:${mi}`
+  const mm = `${d.getMonth() + 1}`.padStart(2, '0')
+  const dd = `${d.getDate()}`.padStart(2, '0')
   return `${mm}-${dd} ${hh}:${mi}`
 }
 
-function jumpTopic(id: string) {
-  showHistory.value = false
-  const el = listEl.value?.querySelector(`[data-mid="${id}"]`)
-  el?.scrollIntoView({ block: 'start' })
+function copyMsg(m: ChatMsg) {
+  const text = m.content?.trim()
+  if (!text) return
+  void navigator.clipboard.writeText(text).then(
+    () => message.success('已复制'),
+    () => message.error('复制失败'),
+  )
 }
 
 async function loadThread() {
   try {
     const data = await assistantApi.thread()
     messages.value = data.messages.map((m) => ({ ...m, done: !!m.draft }))
-    topics.value = data.topics
     await scrollBottom()
   } catch {
     /* 未登录时保持空 */
@@ -229,7 +224,7 @@ async function send() {
   const text = input.value.trim()
   if (!text || busy.value) return
   input.value = ''
-  messages.value.push({ role: 'user', content: text, topic: 'pending' })
+  messages.value.push({ role: 'user', content: text, created_at: Date.now() / 1000 })
   busy.value = true
   startThinking()
   await scrollBottom()
@@ -240,10 +235,8 @@ async function send() {
       content: data.reply,
       draft: data.draft ?? undefined,
       steps: data.steps,
+      created_at: Date.now() / 1000,
     })
-    if (data.topic === 'new') {
-      topics.value.push({ id: `local_${Date.now()}`, title: text.slice(0, 36), created_at: Math.floor(Date.now() / 1000) })
-    }
     if (data.mutated) {
       const table = typeof route.params.tableName === 'string' ? route.params.tableName : ''
       const note = typeof route.params.noteId === 'string' ? route.params.noteId : ''
@@ -257,7 +250,7 @@ async function send() {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
     }
   } catch (err) {
-    messages.value.push({ role: 'assistant', content: (err as Error).message })
+    messages.value.push({ role: 'assistant', content: (err as Error).message, created_at: Date.now() / 1000 })
   } finally {
     stopThinking()
     busy.value = false
@@ -274,11 +267,11 @@ async function confirmDraft(m: ChatMsg) {
     const created = await assistantApi.confirm(m.draft)
     m.done = true
     if (created.action === 'add_fields') {
-      messages.value.push({ role: 'assistant', content: `已给「${created.title}」加上：${(created.added || []).join('、') || '字段'}。` })
+      messages.value.push({ role: 'assistant', content: `已给「${created.title}」加上：${(created.added || []).join('、') || '字段'}。`, created_at: Date.now() / 1000 })
     } else if (created.action === 'create_note') {
-      messages.value.push({ role: 'assistant', content: `已创建笔记「${created.title}」。` })
+      messages.value.push({ role: 'assistant', content: `已创建笔记「${created.title}」。`, created_at: Date.now() / 1000 })
     } else {
-      messages.value.push({ role: 'assistant', content: `已创建表格「${created.title}」。` })
+      messages.value.push({ role: 'assistant', content: `已创建表格「${created.title}」。`, created_at: Date.now() / 1000 })
     }
     await refreshWorkspace(queryClient)
     queryClient.invalidateQueries({ queryKey: ['fields', created.name] })
@@ -419,17 +412,36 @@ async function confirmDraft(m: ChatMsg) {
   line-height: 1.45;
   margin-bottom: 6px;
 }
-.asst-msg.user { align-self: flex-end; max-width: 92%; }
-.asst-msg.assistant { align-self: flex-start; max-width: 92%; }
+.asst-msg { align-self: stretch; max-width: 100%; }
+.asst-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: #9b9a97;
+}
+.asst-who { font-weight: 600; color: #787774; }
+.asst-copy {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #9b9a97;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.asst-copy:hover { color: #37352f; }
 .asst-bubble {
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   padding: 8px 10px;
   border-radius: 8px;
   white-space: pre-wrap;
+  color: #37352f;
 }
-.asst-msg.user .asst-bubble { background: #37352f; color: #fff; }
-.asst-msg.assistant .asst-bubble { background: #fff; border: 1px solid #e9e9e7; color: #37352f; }
+.asst-msg.user .asst-bubble { background: #f1f1ef; }
+.asst-msg.assistant .asst-bubble { background: #fff; border: 1px solid #e9e9e7; }
 .asst-bubble.md :deep(p) { margin: 0 0 0.5em; }
 .asst-bubble.md :deep(p:last-child) { margin-bottom: 0; }
 .asst-bubble.md :deep(ul),

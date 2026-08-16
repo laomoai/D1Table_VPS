@@ -602,6 +602,7 @@ assistant.get('/thread', async (c) => {
     steps: m.steps_json ? JSON.parse(m.steps_json) : undefined,
     topic: m.topic,
     done: !!m.draft_json,
+    created_at: m.created_at,
   }))
   const topics = stored
     .filter((m) => m.role === 'user' && m.topic === 'new')
