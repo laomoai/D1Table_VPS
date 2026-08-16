@@ -389,7 +389,7 @@ export const assistantApi = {
     messages: Array<{ role: string; content: string }>,
     context?: { table?: string | null; table_title?: string | null; note?: string | null; note_title?: string | null },
   ) =>
-    http.post<{ data: { reply: string; draft: TableDraft | null; steps?: AssistantStep[] } }>('/assistant/chat', { messages, context }, { timeout: 90000 })
+    http.post<{ data: { reply: string; draft: TableDraft | null; steps?: AssistantStep[]; mutated?: boolean } }>('/assistant/chat', { messages, context }, { timeout: 90000 })
       .then((r) => r.data.data),
   confirm: (draft: TableDraft) =>
     http.post<{ data: { name: string; title: string; folder_id: string | null; action?: string; added?: string[] } }>('/assistant/confirm', { draft })

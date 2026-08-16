@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AuthVariables, Env } from '../types'
 import { requireWriteMiddleware } from '../middleware/auth'
-import { createFolder, listWorkspaceNodes, expandTablesAcrossFolders, ensureTableNode, ensureNoteNode } from '../utils/workspace'
+import { createFolder, listWorkspaceNodes, expandTablesAcrossFolders, ensureTableNode, ensureNoteNode, updateNodeTitleByRef } from '../utils/workspace'
 import { getUserTables, isValidIdentifier } from '../utils/schema-cache'
 
 const assistant = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -133,17 +133,110 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'update_note',
+      description: '修改已有笔记的标题和/或正文。用户说改这篇、更新笔记、改标题时用。note_id 默认当前打开的笔记。',
+      parameters: {
+        type: 'object',
+        properties: {
+          note_id: { type: 'string' },
+          title: { type: 'string' },
+          content: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_records',
+      description: '查询表格记录。可用关键词搜索。默认当前打开的表。',
+      parameters: {
+        type: 'object',
+        properties: {
+          table_name: { type: 'string' },
+          q: { type: 'string', description: '关键词，匹配各文本字段' },
+          limit: { type: 'integer' },
+        },
+        required: ['table_name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_record',
+      description: '按 id 读取一条记录。',
+      parameters: {
+        type: 'object',
+        properties: {
+          table_name: { type: 'string' },
+          id: { type: 'integer' },
+        },
+        required: ['table_name', 'id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'insert_record',
+      description: '向表格新增一条记录。values 的键用字段中文标题或 column_name。',
+      parameters: {
+        type: 'object',
+        properties: {
+          table_name: { type: 'string' },
+          values: { type: 'object', additionalProperties: true },
+        },
+        required: ['table_name', 'values'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_record',
+      description: '更新一条记录的部分字段。',
+      parameters: {
+        type: 'object',
+        properties: {
+          table_name: { type: 'string' },
+          id: { type: 'integer' },
+          values: { type: 'object', additionalProperties: true },
+        },
+        required: ['table_name', 'id', 'values'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_record',
+      description: '删除一条记录，进回收站。',
+      parameters: {
+        type: 'object',
+        properties: {
+          table_name: { type: 'string' },
+          id: { type: 'integer' },
+        },
+        required: ['table_name', 'id'],
+      },
+    },
+  },
 ]
 
 const SYSTEM = `你是墨问里的工作区助手。用户用中文说话。
-你可以操作表格和笔记，不要说「只能操作表格」或「无法创建笔记」。
-你只能通过工具了解和提议改动，不能假装已经改好了。
+你可以读写表格记录，也可以读、改、新建笔记。不要说做不到这些。
 系统会告诉你用户当前打开的表格或笔记。
-- 「这个表格 / 当前表 / 新增字段」：get_table_schema 后 propose_fields。
-- 「新建一张表」：propose_table。
-- 「存为笔记 / 保存为新笔记 / 写成笔记 / 这篇存下来」：propose_note，content 用完整 Markdown。
-账号密码管理建议字段：名称、账号、密码(password)、网址、备注；可选 TOTP、分类。
-先 list_workspace 再决定放到哪个文件夹。回复用简短中文 Markdown。`
+- 查记录：query_records / get_record。
+- 增改删记录：insert_record / update_record / delete_record。values 优先用字段中文标题。先 get_table_schema。
+- 改当前笔记标题或正文：update_note。
+- 新建笔记：propose_note，等用户确认。
+- 新建表 / 给表加字段：propose_table / propose_fields，等用户确认。
+改结构（建表、加字段、建整篇新笔记）要确认；改记录和改已有笔记可以直接执行并告诉用户结果。
+回复用简短中文 Markdown。`
 
 function fieldTypeToSqlite(t: string): 'TEXT' | 'INTEGER' {
   if (t === 'number' || t === 'checkbox' || t === 'date' || t === 'datetime') return 'INTEGER'
@@ -185,6 +278,145 @@ async function getTableSchema(db: Env['DB'], tableName: string) {
   return { table_name: tableName, fields: rows.results ?? [] }
 }
 
+type FieldRow = { column_name: string; title: string; field_type: string }
+
+async function loadFields(db: Env['DB'], tableName: string): Promise<FieldRow[]> {
+  const rows = await db.prepare(
+    `SELECT column_name, title, field_type FROM _field_meta WHERE table_name = ? ORDER BY order_index ASC`,
+  ).bind(tableName).all<FieldRow>()
+  return rows.results ?? []
+}
+
+function resolveTableName(raw: string | undefined, fallback?: string | null) {
+  return String(raw || fallback || '').trim()
+}
+
+function mapValuesToColumns(fields: FieldRow[], values: Record<string, unknown>) {
+  const byTitle = new Map(fields.map((f) => [f.title.trim().toLowerCase(), f.column_name]))
+  const byCol = new Set(fields.map((f) => f.column_name))
+  const mapped: Record<string, unknown> = {}
+  const unknown: string[] = []
+  for (const [key, val] of Object.entries(values || {})) {
+    if (byCol.has(key)) mapped[key] = val
+    else {
+      const col = byTitle.get(key.trim().toLowerCase())
+      if (col) mapped[col] = val
+      else unknown.push(key)
+    }
+  }
+  return { mapped, unknown }
+}
+
+function assertWritable(c: { get: (k: string) => unknown }) {
+  if (c.get('keyType') === 'readonly') throw new Error('当前是只读权限，不能改数据')
+}
+
+async function assertUserTable(db: Env['DB'], tableName: string) {
+  const tables = await getUserTables(db)
+  if (!tableName || !tables.includes(tableName)) throw new Error('找不到这张表格')
+  return tableName
+}
+
+function rowForDisplay(fields: FieldRow[], row: Record<string, unknown>) {
+  const out: Record<string, unknown> = { id: row.id }
+  for (const f of fields) {
+    if (f.column_name === 'id' || f.column_name === 'created_at') continue
+    if (f.column_name in row) out[f.title || f.column_name] = row[f.column_name]
+  }
+  return out
+}
+
+async function queryRecords(db: Env['DB'], tableName: string, q?: string, limit = 20) {
+  await assertUserTable(db, tableName)
+  const fields = await loadFields(db, tableName)
+  const n = Math.min(Math.max(limit || 20, 1), 50)
+  let sql = `SELECT * FROM "${tableName}"`
+  const params: unknown[] = []
+  if (q?.trim()) {
+    const textCols = fields.filter((f) => !['id', 'created_at'].includes(f.column_name))
+    if (textCols.length) {
+      sql += ` WHERE ${textCols.map((f) => `"${f.column_name}" LIKE ?`).join(' OR ')}`
+      for (const _ of textCols) params.push(`%${q.trim()}%`)
+    }
+  }
+  sql += ` ORDER BY id DESC LIMIT ?`
+  params.push(n)
+  const rows = await db.prepare(sql).bind(...params).all<Record<string, unknown>>()
+  return { table_name: tableName, count: rows.results.length, records: rows.results.map((r) => rowForDisplay(fields, r)) }
+}
+
+async function getRecord(db: Env['DB'], tableName: string, id: number) {
+  await assertUserTable(db, tableName)
+  const fields = await loadFields(db, tableName)
+  const row = await db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).bind(id).first<Record<string, unknown>>()
+  if (!row) return { error: '找不到这条记录' }
+  return { table_name: tableName, record: rowForDisplay(fields, row) }
+}
+
+async function insertRecord(db: Env['DB'], tableName: string, values: Record<string, unknown>) {
+  await assertUserTable(db, tableName)
+  const fields = await loadFields(db, tableName)
+  const { mapped, unknown } = mapValuesToColumns(fields, values)
+  const cols = Object.keys(mapped).filter((k) => k !== 'id' && isValidIdentifier(k))
+  if (cols.length === 0) return { error: '没有可写入的字段', unknown }
+  const sql = `INSERT INTO "${tableName}" (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`
+  const result = await db.prepare(sql).bind(...cols.map((c) => mapped[c])).run()
+  await db.prepare(
+    `INSERT INTO _meta (table_name, row_count) VALUES (?, 1)
+     ON CONFLICT(table_name) DO UPDATE SET row_count = row_count + 1, updated_at = unixepoch()`,
+  ).bind(tableName).run()
+  const id = Number(result.meta.last_row_id || 0)
+  return { ok: true, id, unknown, record: rowForDisplay(fields, { id, ...mapped }) }
+}
+
+async function updateRecord(db: Env['DB'], tableName: string, id: number, values: Record<string, unknown>) {
+  await assertUserTable(db, tableName)
+  const fields = await loadFields(db, tableName)
+  const { mapped, unknown } = mapValuesToColumns(fields, values)
+  const cols = Object.keys(mapped).filter((k) => k !== 'id' && isValidIdentifier(k))
+  if (cols.length === 0) return { error: '没有可更新的字段', unknown }
+  const sql = `UPDATE "${tableName}" SET ${cols.map((c) => `"${c}" = ?`).join(', ')} WHERE id = ?`
+  const result = await db.prepare(sql).bind(...cols.map((c) => mapped[c]), id).run()
+  if (!result.meta.changes) return { error: '找不到这条记录' }
+  return { ok: true, id, unknown }
+}
+
+async function deleteRecord(db: Env['DB'], tableName: string, id: number, userId: number | null, teamId: number | null) {
+  await assertUserTable(db, tableName)
+  const existing = await db.prepare(`SELECT * FROM "${tableName}" WHERE id = ?`).bind(id).first()
+  if (!existing) return { error: '找不到这条记录' }
+  await db.batch([
+    db.prepare(`INSERT INTO _trash (table_name, record_id, record_data, owner_id, team_id) VALUES (?, ?, ?, ?, ?)`)
+      .bind(tableName, id, JSON.stringify(existing), userId, teamId),
+    db.prepare(`DELETE FROM "${tableName}" WHERE id = ?`).bind(id),
+    db.prepare(`UPDATE _meta SET row_count = MAX(row_count - 1, 0), updated_at = unixepoch() WHERE table_name = ?`).bind(tableName),
+  ])
+  return { ok: true, id }
+}
+
+async function updateNote(db: Env['DB'], noteId: string, title?: string, content?: string) {
+  const row = await db.prepare(
+    `SELECT id, archived_at FROM _notes WHERE id = ? AND deleted_at IS NULL`,
+  ).bind(noteId).first<{ id: string; archived_at: number | null }>()
+  if (!row) return { error: '找不到这篇笔记' }
+  if (row.archived_at) return { error: '归档中的笔记不能改' }
+  if (title === undefined && content === undefined) return { error: '请提供 title 或 content' }
+  const sets = ['updated_at = unixepoch()']
+  const params: unknown[] = []
+  if (title !== undefined) {
+    sets.push('title = ?')
+    params.push(title.trim() || '未命名')
+  }
+  if (content !== undefined) {
+    sets.push('content = ?')
+    params.push(content)
+  }
+  params.push(noteId)
+  await db.prepare(`UPDATE _notes SET ${sets.join(', ')} WHERE id = ?`).bind(...params).run()
+  if (title !== undefined) await updateNodeTitleByRef(db, 'note', noteId, title.trim() || '未命名')
+  return { ok: true, id: noteId, title: title?.trim() }
+}
+
 function normalizeFields(fields: DraftField[]): DraftField[] {
   return fields.map((f) => ({
     title: String(f.title || '').trim(),
@@ -201,7 +433,7 @@ async function llmChat(apiKey: string, messages: unknown[]) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       messages,
       tools: TOOLS,
       tool_choice: 'auto',
@@ -253,11 +485,18 @@ assistant.post('/chat', async (c) => {
 
   let draft: TableDraft | null = null
   let reply = ''
+  let mutated = false
   const steps: Array<{ name: string; label: string }> = []
   const stepLabel: Record<string, string> = {
     list_workspace: '查看工作区',
     get_table_schema: '读取表格字段',
     get_note: '读取笔记',
+    update_note: '修改笔记',
+    query_records: '查询记录',
+    get_record: '读取记录',
+    insert_record: '新增记录',
+    update_record: '更新记录',
+    delete_record: '删除记录',
     propose_fields: '准备添加字段',
     propose_table: '准备新建表格',
     propose_note: '准备新建笔记',
@@ -278,7 +517,15 @@ assistant.post('/chat', async (c) => {
     for (const call of calls) {
       let result: unknown = { ok: false }
       try {
-        const args = JSON.parse(call.function.arguments || '{}') as TableDraft & { table_name?: string; note_id?: string }
+        const args = JSON.parse(call.function.arguments || '{}') as TableDraft & {
+          table_name?: string
+          note_id?: string
+          id?: number
+          q?: string
+          limit?: number
+          values?: Record<string, unknown>
+          content?: string
+        }
         steps.push({ name: call.function.name, label: stepLabel[call.function.name] || call.function.name })
         if (call.function.name === 'list_workspace') {
           result = await listWorkspaceBrief(c)
@@ -322,6 +569,35 @@ assistant.post('/chat', async (c) => {
             }
             result = { ok: true, waiting_for_user_confirm: true, draft }
           }
+        } else if (call.function.name === 'update_note') {
+          assertWritable(c)
+          const nid = String(args.note_id || ctx?.note || '').trim()
+          if (!nid) result = { error: '缺少 note_id，请先打开一篇笔记或指定 id' }
+          else {
+            result = await updateNote(c.env.DB, nid, args.title, args.content)
+            if ((result as { ok?: boolean }).ok) mutated = true
+          }
+        } else if (call.function.name === 'query_records') {
+          const name = resolveTableName(args.table_name, ctx?.table)
+          result = await queryRecords(c.env.DB, name, args.q, args.limit)
+        } else if (call.function.name === 'get_record') {
+          const name = resolveTableName(args.table_name, ctx?.table)
+          result = await getRecord(c.env.DB, name, Number(args.id))
+        } else if (call.function.name === 'insert_record') {
+          assertWritable(c)
+          const name = resolveTableName(args.table_name, ctx?.table)
+          result = await insertRecord(c.env.DB, name, args.values || {})
+          if ((result as { ok?: boolean }).ok) mutated = true
+        } else if (call.function.name === 'update_record') {
+          assertWritable(c)
+          const name = resolveTableName(args.table_name, ctx?.table)
+          result = await updateRecord(c.env.DB, name, Number(args.id), args.values || {})
+          if ((result as { ok?: boolean }).ok) mutated = true
+        } else if (call.function.name === 'delete_record') {
+          assertWritable(c)
+          const name = resolveTableName(args.table_name, ctx?.table)
+          result = await deleteRecord(c.env.DB, name, Number(args.id), c.get('userId') ?? null, c.get('teamId') ?? null)
+          if ((result as { ok?: boolean }).ok) mutated = true
         } else if (call.function.name === 'propose_table') {
           if (!args.title || !Array.isArray(args.fields) || args.fields.length === 0) {
             result = { error: 'title 和 fields 必填' }
@@ -361,7 +637,7 @@ assistant.post('/chat', async (c) => {
           : '我这边没有得到明确回复，请再说一次。'
   }
 
-  return c.json({ data: { reply, draft, steps } })
+  return c.json({ data: { reply, draft, steps, mutated } })
 })
 
 assistant.post('/confirm', requireWriteMiddleware, async (c) => {

@@ -258,6 +258,18 @@ async function send() {
       draft: data.draft ?? undefined,
       steps: data.steps,
     })
+    if (data.mutated) {
+      const table = typeof route.params.tableName === 'string' ? route.params.tableName : ''
+      const note = typeof route.params.noteId === 'string' ? route.params.noteId : ''
+      await refreshWorkspace(queryClient)
+      if (table) {
+        queryClient.invalidateQueries({ queryKey: ['fields', table] })
+        queryClient.invalidateQueries({ queryKey: ['table', table] })
+        queryClient.invalidateQueries({ queryKey: ['records', table] })
+      }
+      if (note) queryClient.invalidateQueries({ queryKey: ['notes', note] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+    }
   } catch (err) {
     messages.value.push({ role: 'assistant', content: (err as Error).message })
   } finally {
