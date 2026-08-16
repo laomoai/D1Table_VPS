@@ -3,8 +3,11 @@ import { VueQueryPlugin, type VueQueryPluginOptions } from '@tanstack/vue-query'
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-alpine.css'
+import { registerSW } from 'virtual:pwa-register'
 import App from './App.vue'
 import router from './router'
+
+registerSW({ immediate: true })
 
 // AG Grid 模块注册（全局一次性）
 ModuleRegistry.registerModules([AllCommunityModule])

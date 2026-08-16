@@ -1,6 +1,7 @@
 <template>
-  <aside class="asst" :style="{ width: width + 'px' }">
+  <aside class="asst" :class="{ 'asst--full': narrow }" :style="narrow ? undefined : { width: width + 'px' }">
     <div
+      v-if="!narrow"
       class="asst-resize"
       :class="{ active: resizing }"
       title="拖动调整宽度"
@@ -15,7 +16,7 @@
       </div>
       <div ref="listEl" class="asst-list">
         <div v-if="messages.length === 0 && !busy" class="asst-empty">
-          可以说：帮我把这段存成新笔记，或给当前表格加字段。
+          {{ narrow ? '要改表格或笔记，直接说。可以说：给当前表加一条，或把这篇笔记改个标题。' : '可以说：帮我把这段存成新笔记，或给当前表格加字段。' }}
         </div>
         <div v-for="(m, i) in messages" :key="m.id || i" class="asst-msg" :class="m.role" :data-mid="m.id">
           <div v-if="m.role === 'user'" class="asst-bubble">{{ m.content }}</div>
@@ -72,6 +73,8 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useMessage } from 'naive-ui'
 import DOMPurify from 'dompurify'
 import { assistantApi, type AssistantStep, type TableDraft, type WorkspaceNode } from '@/api/client'
+import { useNarrow } from '@/composables/useNarrow'
+import { ASSISTANT_ASK } from '@/composables/assistantAsk'
 import { renderMarkdown } from '@/utils/markdown'
 import { refreshWorkspace } from '@/composables/workspaceNav'
 
@@ -169,8 +172,23 @@ async function loadThread() {
   }
 }
 
-onMounted(() => { void loadThread() })
-onUnmounted(stopThinking)
+const narrow = useNarrow()
+
+function onAsk(e: Event) {
+  const { text, send: shouldSend } = (e as CustomEvent<{ text: string; send?: boolean }>).detail || {}
+  if (!text) return
+  input.value = text
+  if (shouldSend) void send()
+}
+
+onMounted(() => {
+  void loadThread()
+  window.addEventListener(ASSISTANT_ASK, onAsk)
+})
+onUnmounted(() => {
+  stopThinking()
+  window.removeEventListener(ASSISTANT_ASK, onAsk)
+})
 
 function typeLabel(t: string) {
   const map: Record<string, string> = {
@@ -301,6 +319,16 @@ async function confirmDraft(m: ChatMsg) {
   border-left: 1px solid #e9e9e7;
   background: #fbfbfa;
   min-width: 280px;
+}
+.asst--full {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  width: auto;
+  min-width: 0;
+  border-left: 0;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 .asst-resize {
   position: absolute;

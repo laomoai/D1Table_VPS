@@ -4,7 +4,11 @@
 .claude/
 node_modules/
 dist/
-public/
+/public/
+!web/public/
+web/public/**
+!web/public/icons/
+!web/public/icons/**
 .wrangler/
 .dev.vars*
 .env*

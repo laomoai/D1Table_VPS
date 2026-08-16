@@ -3,7 +3,7 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <span class="table-title">
-        <button class="title-icon-btn" @click="showIconPicker = true" title="更换图标">
+        <button class="title-icon-btn" :disabled="narrow" @click="showIconPicker = true" title="更换图标">
           <IonIcon v-if="props.tableIcon && props.tableIcon.startsWith('ion:')" :name="props.tableIcon.slice(4)" :size="16" />
           <span v-else-if="props.tableIcon" class="title-icon-emoji">{{ props.tableIcon }}</span>
           <IonIcon v-else name="GridOutline" :size="16" />
@@ -32,6 +32,7 @@
       <n-button size="small" quaternary @click="refreshAll" title="刷新" :disabled="refreshing">
         <span :class="{ 'spin-icon': refreshing }">↻</span>
       </n-button>
+      <template v-if="!narrow">
       <n-dropdown :options="exportOptions" @select="handleExport" trigger="click">
         <n-button size="small" :loading="exporting">导出</n-button>
       </n-dropdown>
@@ -39,8 +40,10 @@
       <n-button size="small" quaternary @click="toggleLock" :title="props.isLocked ? '解锁表格' : '锁定表格'">
         <IonIcon :name="props.isLocked ? 'LockClosedOutline' : 'LockOpenOutline'" :size="14" />
       </n-button>
+      </template>
+      <n-button v-else size="small" type="primary" @click="askAssistant('请在当前表格新增一条记录：', false)">用助手改</n-button>
       <!-- 视图切换 -->
-      <div class="view-switcher">
+      <div v-if="!narrow" class="view-switcher">
         <button class="view-btn" title="表格视图" @click="emit('switchView', 'grid')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
             <rect x="1" y="1" width="5" height="2.5" rx="0.5"/>
@@ -80,7 +83,9 @@
     <!-- 卡片区域 -->
     <div class="gallery-scroll">
       <div v-if="isLoading" class="gallery-empty"><n-spin /></div>
-      <div v-else-if="filteredRows.length === 0" class="gallery-empty">暂无记录</div>
+      <div v-else-if="filteredRows.length === 0" class="gallery-empty">
+        {{ narrow ? '没有记录。要对助手说「加一条」。' : '暂无记录' }}
+      </div>
       <div v-else class="gallery-grid">
         <div
           v-for="record in filteredRows"
@@ -171,6 +176,7 @@
     :fields="fields"
     :all-rows="rowData as Record<string, unknown>[]"
     :initial-index="expandIndex"
+    :browse-only="narrow"
     @refresh="invalidate"
   />
 
@@ -185,6 +191,8 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useMessage, useDialog, NButton, NSpin, NInput, NPagination, NDropdown } from 'naive-ui'
 
 import { api, type FieldMeta, type RecordRow } from '@/api/client'
+import { useNarrow } from '@/composables/useNarrow'
+import { askAssistant } from '@/composables/assistantAsk'
 import { buildRecordQueryParams } from '@/utils/recordQuery'
 import { copyText } from '@/utils/clipboard'
 import FilterBar, { type Filter } from './FilterBar.vue'
@@ -194,6 +202,8 @@ import CellValue from './CellValue.vue'
 import IonIcon from './IonIcon.vue'
 import AppModal from './AppModal.vue'
 const IconPicker = defineAsyncComponent(() => import('./IconPicker.vue'))
+
+const narrow = useNarrow()
 
 const props = defineProps<{
   tableName: string
@@ -487,6 +497,7 @@ onBeforeUnmount(() => {
 .toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 16px;
   border-bottom: 1px solid #e8eaf0;

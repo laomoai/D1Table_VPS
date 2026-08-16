@@ -7,7 +7,7 @@
         <ArchiveBackBar />
         <div class="note-header">
           <div class="note-title-row">
-            <button class="note-icon-btn" @click="showIconPicker = true" :disabled="noteFrozen" :title="activeNote.icon ? '更换图标' : '添加图标'">
+            <button class="note-icon-btn" @click="showIconPicker = true" :disabled="noteFrozen || narrow" :title="activeNote.icon ? '更换图标' : '添加图标'">
               <IonIcon v-if="activeNote.icon && activeNote.icon.startsWith('ion:')" :name="activeNote.icon.slice(4)" :size="22" />
               <span v-else-if="activeNote.icon" class="note-emoji-icon note-emoji-icon--lg">{{ activeNote.icon }}</span>
               <IonIcon v-else :name="activeNoteHasChildren ? 'FolderOutline' : 'DocumentOutline'" :size="22" />
@@ -16,16 +16,17 @@
               v-model="noteTitle"
               class="note-title-input"
               placeholder="未命名"
-              :readonly="noteFrozen"
+              :readonly="noteFrozen || narrow"
               @blur="saveTitle"
               @keyup.enter="($event.target as HTMLInputElement).blur()"
             />
           </div>
           <div class="note-meta">
             <span v-if="activeNote.archived_at" class="note-saved">归档只读</span>
-            <button v-else class="note-lock-btn" @click="toggleNoteLock" :title="activeNote.is_locked ? '解锁笔记' : '锁定笔记'">
+            <button v-else-if="!narrow" class="note-lock-btn" @click="toggleNoteLock" :title="activeNote.is_locked ? '解锁笔记' : '锁定笔记'">
               <IonIcon :name="activeNote.is_locked ? 'LockClosedOutline' : 'LockOpenOutline'" :size="14" />
             </button>
+            <button v-if="narrow" type="button" class="note-ask-btn" @click="askAssistant('请改当前这篇笔记：', false)">让助手改</button>
             <span v-if="activeNote.updated_at" class="note-time">
               更新于 {{ formatTime(activeNote.updated_at) }}
             </span>
@@ -35,7 +36,9 @@
             <div class="note-meta-spacer" />
           </div>
         </div>
+        <div v-if="narrow" class="note-browse" v-html="noteBrowseHtml" />
         <NoteEditor
+          v-else
           ref="noteEditorRef"
           v-model="noteContent"
           :editable="!noteFrozen"
@@ -53,7 +56,7 @@
               子页面 ({{ activeSubPages.length }})
             </span>
             <div class="subpages-header-actions">
-              <button class="subpages-add" @click="createChildNote(activeNoteId!)">+ 添加</button>
+              <button v-if="!narrow" class="subpages-add" @click="createChildNote(activeNoteId!)">+ 添加</button>
               <button class="subpages-minimize-btn" @click="toggleSubpagesMinimized" :title="subpagesMinimized ? '展开' : '收起'">
                 {{ subpagesMinimized ? '▲' : '▼' }}
               </button>
@@ -85,7 +88,7 @@
         <div class="placeholder-icon">
           <IonIcon name="DocumentTextOutline" :size="48" />
         </div>
-        <p>选择一条笔记，或新建一条</p>
+        <p>{{ narrow ? '从工作区打开一篇笔记。要写新笔记，对助手说。' : '选择一条笔记，或新建一条' }}</p>
       </div>
     </div>
 
@@ -137,7 +140,13 @@ import HoverTooltipText from '@/components/HoverTooltipText.vue'
 import IonIcon from '@/components/IonIcon.vue'
 import ArchiveBackBar from '@/components/ArchiveBackBar.vue'
 import { trackRecentAccess } from '@/utils/recentAccess'
+import { useNarrow } from '@/composables/useNarrow'
+import { askAssistant } from '@/composables/assistantAsk'
+import { renderMarkdown } from '@/utils/markdown'
+import DOMPurify from 'dompurify'
 const IconPicker = defineAsyncComponent(() => import('@/components/IconPicker.vue'))
+
+const narrow = useNarrow()
 
 const route = useRoute()
 const router = useRouter()
@@ -155,6 +164,7 @@ const noteEditorRef = ref<InstanceType<typeof NoteEditor> | null>(null)
 const { data: treeData } = useQuery({
   queryKey: ['notes', 'tree'],
   queryFn: notesApi.getTree,
+  refetchInterval: 10_000,
 })
 
 const childrenMap = computed(() => {
@@ -209,6 +219,7 @@ function hasChildNotes(noteId: string): boolean {
 const activeNoteId = ref<string | null>(null)
 const noteTitle = ref('')
 const noteContent = ref('')
+const noteBrowseHtml = computed(() => DOMPurify.sanitize(renderMarkdown(noteContent.value || '')))
 const saving = ref(false)
 const lastSaved = ref(false)
 const saveError = ref<string | null>(null)
@@ -226,6 +237,10 @@ const { data: activeNote } = useQuery({
 
 const noteFrozen = computed(() => !!(activeNote.value?.is_locked || activeNote.value?.archived_at))
 
+function normNoteText(s: string) {
+  return s.replace(/\r\n/g, '\n')
+}
+
 watch(activeNote, (note) => {
   if (!note || note.id !== activeNoteId.value) return
   if (!noteReady.value) {
@@ -237,9 +252,9 @@ watch(activeNote, (note) => {
     nextTick(() => { noteReady.value = true })
     return
   }
-  // Auto-refresh: sync external changes only when local content is unchanged
-  const hasLocalTitleChange = noteTitle.value.trim() !== savedTitle
-  const hasLocalContentChange = noteContent.value !== savedContent
+  // 助手或其他设备改过时拉进来；本页正在改的不覆盖
+  const hasLocalTitleChange = noteTitle.value.trim() !== savedTitle.trim()
+  const hasLocalContentChange = normNoteText(noteContent.value) !== normNoteText(savedContent)
   if (!hasLocalTitleChange && note.title !== savedTitle) {
     noteTitle.value = note.title
     savedTitle = note.title
@@ -580,6 +595,25 @@ async function handleImport(event: Event) {
 .note-emoji-icon--lg {
   font-size: 22px;
 }
+.note-ask-btn {
+  border: 0;
+  background: #37352f;
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  margin-right: 8px;
+}
+.note-browse {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 20px 40px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #37352f;
+}
+.note-browse :deep(img) { max-width: 100%; }
+.note-browse :deep(pre) { overflow: auto; }
 .note-title-input {
   flex: 1;
   border: none;

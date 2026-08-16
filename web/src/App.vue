@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
+  <n-config-provider class="app-root" :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <n-dialog-provider>
         <router-view />
@@ -72,3 +72,12 @@ const themeOverrides = {
   },
 }
 </script>
+
+<style>
+.app-root,
+.app-root .n-message-provider,
+.app-root .n-dialog-provider {
+  height: 100%;
+  min-height: 100%;
+}
+</style>

@@ -1,13 +1,25 @@
 <template>
-  <div class="app-layout" :class="{ resizing: isResizing }">
+  <div class="app-layout" :class="{ resizing: isResizing, narrow, 'drawer-open': drawerOpen }">
+    <header v-if="narrow" class="mob-bar">
+      <button type="button" class="mob-bar-btn" aria-label="工作区" @click="drawerOpen = !drawerOpen">☰</button>
+      <span class="mob-bar-title">{{ mobileTitle }}</span>
+      <button
+        type="button"
+        class="mob-bar-ai"
+        :class="{ active: assistantOpen }"
+        @click="assistantOpen = !assistantOpen"
+      >AI</button>
+    </header>
+    <div v-if="narrow && drawerOpen" class="drawer-mask" @click="drawerOpen = false" />
     <!-- Sidebar -->
-    <aside class="sidebar" :style="{ width: sidebarWidth + 'px' }">
+    <aside class="sidebar" :style="narrow ? undefined : { width: sidebarWidth + 'px' }">
       <div class="sidebar-header">
         <button type="button" class="logo-btn" @click="router.push('/')">
           <img src="/logo.svg" class="logo-img" alt="墨问" />
           <span class="logo">墨问</span>
         </button>
         <button
+          v-if="!narrow"
           type="button"
           class="ai-launch"
           :class="{ active: assistantOpen }"
@@ -34,7 +46,7 @@
 
       <div class="panel-header">
         <input v-model="workspaceSearch" class="panel-search-input" placeholder="搜索…" />
-        <div class="add-wrap" ref="addWrapRef">
+        <div v-if="!narrow" class="add-wrap" ref="addWrapRef">
           <button class="panel-add-btn" title="添加" @click="toggleAddMenu">+</button>
           <div v-if="showAddMenu" class="add-menu">
             <button @click="openFolderModal()">文件夹</button>
@@ -127,6 +139,7 @@
 
     <!-- Resize handle -->
     <div
+      v-if="!narrow"
       class="resize-handle"
       :class="{ active: isResizing }"
       @mousedown.prevent="startResize"
@@ -170,6 +183,8 @@ import {
 } from '@vicons/ionicons5'
 import { api, notesApi, http, avatarUrl, workspaceApi, type TableMeta, type NoteListItem, type WorkspaceNode } from '@/api/client'
 import { refreshWorkspace, openWorkspaceNode } from '@/composables/workspaceNav'
+import { useNarrow } from '@/composables/useNarrow'
+import { ASSISTANT_ASK } from '@/composables/assistantAsk'
 import { getCachedUser, resetAuthState } from '@/router'
 import { registerClipboardToast } from '@/utils/clipboard'
 import HoverTooltipText from './HoverTooltipText.vue'
@@ -210,6 +225,7 @@ const expandedWorkspace = reactive(new Set<string>(
 const { data: workspaceNodes, isLoading: workspaceLoading } = useQuery({
   queryKey: ['workspace'],
   queryFn: workspaceApi.getTree,
+  refetchInterval: 10_000,
 })
 
 const workspaceChildrenMap = computed(() => {
@@ -247,6 +263,7 @@ function toggleWorkspaceFolder(id: string) {
 
 function selectWorkspaceNode(node: WorkspaceNode) {
   openWorkspaceNode(router, node)
+  drawerOpen.value = false
 }
 
 const folderOptions = computed(() =>
@@ -987,9 +1004,38 @@ async function handleNoteReorder({ dragId, dropId, mode }: { dragId: string; dro
 // ── User menu ───────────────────────────────────────────────────
 const currentUser = ref(getCachedUser())
 const showUserMenu = ref(false)
+const narrow = useNarrow()
+const drawerOpen = ref(false)
 const ASSIST_KEY = 'mowen_assistant_collapsed'
-const assistantOpen = ref(localStorage.getItem(ASSIST_KEY) !== '1')
-watch(assistantOpen, (v) => localStorage.setItem(ASSIST_KEY, v ? '0' : '1'))
+const assistantOpen = ref(!narrow.value && localStorage.getItem(ASSIST_KEY) !== '1')
+watch(assistantOpen, (v) => {
+  if (!narrow.value) localStorage.setItem(ASSIST_KEY, v ? '0' : '1')
+})
+watch(narrow, (isNarrow) => {
+  if (isNarrow) {
+    assistantOpen.value = false
+    drawerOpen.value = false
+  }
+})
+
+const mobileTitle = computed(() => {
+  if (route.path.startsWith('/notes')) return '笔记'
+  if (route.path.startsWith('/tables')) return '表格'
+  if (route.path.startsWith('/settings')) return '设置'
+  if (route.path.startsWith('/administration')) return '管理'
+  if (route.path.startsWith('/archive') || route.path.startsWith('/knowledge-base')) return '归档'
+  return '墨问'
+})
+
+function onAssistantAsk() {
+  assistantOpen.value = true
+  drawerOpen.value = false
+}
+
+onMounted(() => window.addEventListener(ASSISTANT_ASK, onAssistantAsk))
+onUnmounted(() => window.removeEventListener(ASSISTANT_ASK, onAssistantAsk))
+
+watch(() => route.path, () => { drawerOpen.value = false })
 
 watch(() => route.fullPath, () => {
   currentUser.value = getCachedUser()
@@ -1029,8 +1075,12 @@ async function logout() {
 /* ── Layout ────────────────────────────────────────────────── */
 .app-layout {
   display: flex;
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
+}
+.app-layout.narrow {
+  flex-direction: column;
 }
 .app-layout.resizing {
   cursor: col-resize;
@@ -1044,6 +1094,67 @@ async function logout() {
   flex-shrink: 0;
   min-width: 180px;
   max-width: 480px;
+  min-height: 0;
+  height: 100%;
+}
+.mob-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 10px;
+  padding-top: env(safe-area-inset-top);
+  background: #f7f7f5;
+  border-bottom: 1px solid #e9e9e7;
+  flex-shrink: 0;
+  z-index: 30;
+}
+.mob-bar-btn,
+.mob-bar-ai {
+  border: 0;
+  background: transparent;
+  color: #37352f;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 8px;
+  min-width: 40px;
+}
+.mob-bar-ai.active { background: #eceae6; }
+.mob-bar-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drawer-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.28);
+  z-index: 40;
+}
+.app-layout.narrow .sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(84vw, 320px);
+  max-width: 320px;
+  min-width: 0;
+  height: 100dvh;
+  z-index: 50;
+  transform: translateX(-105%);
+  transition: transform 0.2s ease;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.app-layout.narrow.drawer-open .sidebar {
+  transform: translateX(0);
+}
+.app-layout.narrow .main-content {
+  flex: 1;
 }
 .sidebar-scroll {
   flex: 1;
@@ -1372,6 +1483,7 @@ async function logout() {
 /* ── Footer ────────────────────────────────────────────────── */
 .sidebar-footer {
   flex-shrink: 0;
+  margin-top: auto;
   border-top: 1px solid #e9e9e7;
 }
 .user-trigger {

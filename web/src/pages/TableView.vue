@@ -9,7 +9,7 @@
       :description="(fieldsError as Error).message"
     />
     <DataGrid
-      v-else-if="fields && viewMode === 'grid'"
+      v-else-if="fields && displayMode === 'grid'"
       :table-name="tableName"
       :fields="fields"
       :table-title="tableTitle"
@@ -22,7 +22,7 @@
       @highlight-handled="clearHighlight"
     />
     <GalleryView
-      v-else-if="fields && viewMode === 'gallery'"
+      v-else-if="fields && displayMode === 'gallery'"
       :table-name="tableName"
       :fields="fields"
       :table-title="tableTitle"
@@ -33,7 +33,7 @@
       @switch-view="switchView"
     />
     <ChartView
-      v-else-if="fields && viewMode === 'chart'"
+      v-else-if="fields && displayMode === 'chart'"
       :table-name="tableName"
       :fields="fields"
       :table-title="tableTitle"
@@ -42,7 +42,7 @@
       @switch-view="switchView"
     />
     <KanbanView
-      v-else-if="fields && viewMode === 'kanban'"
+      v-else-if="fields && displayMode === 'kanban'"
       :table-name="tableName"
       :fields="fields"
       :table-title="tableTitle"
@@ -59,6 +59,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useNarrow } from '@/composables/useNarrow'
 import { NSpin, NResult } from 'naive-ui'
 import { api } from '@/api/client'
 import ArchiveBackBar from '@/components/ArchiveBackBar.vue'
@@ -82,12 +83,14 @@ function getStoredViewMode(table: string): ViewMode {
 }
 
 const viewMode = ref<ViewMode>(getStoredViewMode(tableName.value))
+const narrow = useNarrow()
+const displayMode = computed(() => (narrow.value ? 'gallery' : viewMode.value))
 
 // 监听路由变化（从 link 跳转过来）
 watch(() => route.query.highlight, (v) => {
   if (v) {
     highlightId.value = String(v)
-    viewMode.value = 'grid'
+    if (!narrow.value) viewMode.value = 'grid'
   }
 })
 

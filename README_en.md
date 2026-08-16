@@ -14,6 +14,7 @@ Repo: https://github.com/laomoai/mowen
 - **Built for agent work**: tables hold structured results; notes hold long-form and process; folders keep them together.
 - **External agents**: install the official Skill in WorkBuddy, Codex, etc. Skill: [`/agent/mowen/SKILL.md`](https://mowen.lemoai.cn/agent/mowen/SKILL.md)
 - **In-app assistant**: create tables, add fields, write records, edit notes, and move items — in natural language.
+- **Installable on the phone**: browse and search tables and notes; ask the assistant to make changes. Desktop editing is unchanged.
 - **Tables**: many field types; grid / gallery / kanban; row detail; trash.
 - **Notes**: Markdown, images, table embeds; nested sub-pages.
 - **Folder-scoped keys**: an API key (`mw_`) only sees tables and notes in the folders you grant; read-only keys cannot write.

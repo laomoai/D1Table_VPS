@@ -9,6 +9,12 @@
       <template #header>
         <div class="expand-header">
           <span class="expand-id">ID: {{ currentRow?.id ?? '—' }}</span>
+          <button
+            v-if="browseOnly && currentRow?.id != null"
+            type="button"
+            class="ask-asst-btn"
+            @click="askToEdit"
+          >让助手改这条</button>
           <div class="expand-nav">
             <button class="copy-record-btn" :class="{ copied: recordCopied }" @click="copyRecord" :title="recordCopied ? 'Copied!' : 'Copy record'">
               {{ recordCopied ? '✓' : '⎘' }}
@@ -39,8 +45,13 @@
           </div>
 
           <div class="expand-field-value">
+            <template v-if="browseOnly">
+              <div class="readonly-value-wrap">
+                <CellValue :value="currentRow[field.column_name]" :field-type="field.field_type" :select-options="field.select_options" :detail="true" />
+              </div>
+            </template>
             <!-- 永久只读：主键、created_at -->
-            <template v-if="field.isPrimaryKey || field.column_name === 'created_at'">
+            <template v-else-if="field.isPrimaryKey || field.column_name === 'created_at'">
               <div class="readonly-value-wrap">
                 <CellValue :value="currentRow[field.column_name]" :field-type="field.field_type" :select-options="field.select_options" :detail="true" />
               </div>
@@ -410,6 +421,7 @@ import router from '@/router'
 import { navigateToLinkedRecord } from '@/utils/recordNavigation'
 import { openNotePreview } from '@/utils/notePreview'
 import { copyText } from '@/utils/clipboard'
+import { askAssistant } from '@/composables/assistantAsk'
 import { useNoteTree, type NoteTreeNode } from '@/utils/useNoteTree'
 
 const props = defineProps<{
@@ -418,6 +430,7 @@ const props = defineProps<{
   allRows: Record<string, unknown>[]
   initialIndex: number
   initialRow?: Record<string, unknown> | null
+  browseOnly?: boolean
 }>()
 
 const emit = defineEmits<{ refresh: [] }>()
@@ -436,6 +449,13 @@ const currentRow = computed(() => {
   return detachedRow.value
 })
 const visibleFields = computed(() => props.fields.filter(f => !f.is_hidden))
+
+function askToEdit() {
+  const id = currentRow.value?.id
+  if (id == null) return
+  visible.value = false
+  askAssistant(`请改当前表 id=${id} 这条记录：`, false)
+}
 
 // ── Password field ────────────────────────────────────────────
 const pwRevealed = ref(new Set<string>())
@@ -842,6 +862,15 @@ function typeColor(type: FieldType): string {
   width: 100%;
 }
 .expand-id { font-size: 14px; font-weight: 600; color: #555; }
+.ask-asst-btn {
+  margin-left: 10px;
+  border: 0;
+  background: #37352f;
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
 .expand-nav { display: flex; gap: 4px; align-items: center; }
 
 .copy-record-btn {
