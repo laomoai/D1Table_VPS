@@ -18,11 +18,6 @@
           可以说：帮我把这段存成新笔记，或给当前表格加字段。
         </div>
         <div v-for="(m, i) in messages" :key="m.id || i" class="asst-msg" :class="m.role" :data-mid="m.id">
-          <div class="asst-meta">
-            <span class="asst-who">{{ m.role === 'user' ? '你' : '助手' }}</span>
-            <span class="asst-time">{{ formatMsgTime(m.created_at) }}</span>
-            <button class="asst-copy" type="button" title="复制" @click="copyMsg(m)">复制</button>
-          </div>
           <div v-if="m.role === 'user'" class="asst-bubble">{{ m.content }}</div>
           <template v-else>
             <div v-if="m.steps?.length" class="asst-steps">
@@ -44,6 +39,15 @@
               :disabled="busy"
               @click="confirmDraft(m)"
             >{{ confirmLabel(m.draft) }}</button>
+          </div>
+          <div class="asst-foot">
+            <button class="asst-copy" type="button" title="复制" @click="copyMsg(m)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            </button>
+            <span class="asst-time">{{ formatMsgTime(m.created_at) }}</span>
           </div>
         </div>
         <div v-if="busy" class="asst-msg assistant">
@@ -412,36 +416,46 @@ async function confirmDraft(m: ChatMsg) {
   line-height: 1.45;
   margin-bottom: 6px;
 }
-.asst-msg { align-self: stretch; max-width: 100%; }
-.asst-meta {
+.asst-msg { max-width: 86%; display: flex; flex-direction: column; }
+.asst-msg.user { align-self: flex-end; align-items: flex-end; }
+.asst-msg.assistant { align-self: flex-start; align-items: flex-start; }
+.asst-foot {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-  font-size: 11px;
-  color: #9b9a97;
+  gap: 6px;
+  margin-top: 4px;
 }
-.asst-who { font-weight: 600; color: #787774; }
 .asst-copy {
-  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: transparent;
-  color: #9b9a97;
-  font-size: 11px;
+  color: #b0afa9;
   cursor: pointer;
-  padding: 0 2px;
+  padding: 2px;
+  border-radius: 4px;
 }
-.asst-copy:hover { color: #37352f; }
+.asst-copy:hover { color: #37352f; background: rgba(55, 53, 47, 0.06); }
+.asst-time { font-size: 11px; color: #b0afa9; }
 .asst-bubble {
   font-size: 13px;
   line-height: 1.55;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   white-space: pre-wrap;
-  color: #37352f;
 }
-.asst-msg.user .asst-bubble { background: #f1f1ef; }
-.asst-msg.assistant .asst-bubble { background: #fff; border: 1px solid #e9e9e7; }
+.asst-msg.user .asst-bubble {
+  background: #eceae6;
+  color: #37352f;
+  border-top-right-radius: 4px;
+}
+.asst-msg.assistant .asst-bubble {
+  background: #fff;
+  color: #37352f;
+  border: 1px solid #e9e9e7;
+  border-top-left-radius: 4px;
+}
 .asst-bubble.md :deep(p) { margin: 0 0 0.5em; }
 .asst-bubble.md :deep(p:last-child) { margin-bottom: 0; }
 .asst-bubble.md :deep(ul),
