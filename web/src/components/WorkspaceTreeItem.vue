@@ -78,11 +78,12 @@
               <div v-if="moveTargets.length === 0" class="ws-menu-empty">没有其他文件夹</div>
             </div>
           </div>
+          <div class="ws-menu-sep" />
           <template v-if="node.kind === 'folder'">
-            <div class="ws-menu-sep" />
             <button class="ws-menu-item" @click="onArchive">归档整个文件夹</button>
             <button class="ws-menu-item danger" @click="onDelete">删除</button>
           </template>
+          <button v-else class="ws-menu-item danger" @click="onDelete">删除</button>
       </div>
     </Teleport>
 
@@ -107,6 +108,7 @@
         @rename="emit('rename', $event)"
         @move="emit('move', $event)"
         @delete-folder="emit('delete-folder', $event)"
+        @delete="emit('delete', $event)"
         @archive="emit('archive', $event)"
         @change-icon="emit('change-icon', $event)"
         @reorder="emit('reorder', $event)"
@@ -143,6 +145,7 @@ const emit = defineEmits<{
   rename: [node: WorkspaceNode]
   move: [payload: { id: string; parent_id: string | null }]
   'delete-folder': [id: string]
+  delete: [node: WorkspaceNode]
   archive: [node: WorkspaceNode]
   'change-icon': [node: WorkspaceNode]
   reorder: [payload: { dragId: string; dropId: string; mode: 'above' | 'child' }]
@@ -216,7 +219,8 @@ function onMove(parentId: string | null) {
 
 function onDelete() {
   closeMenu()
-  emit('delete-folder', props.node.id)
+  if (props.node.kind === 'folder') emit('delete-folder', props.node.id)
+  else emit('delete', props.node)
 }
 
 function onArchive() {

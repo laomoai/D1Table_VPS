@@ -139,6 +139,7 @@ import HoverTooltipText from '@/components/HoverTooltipText.vue'
 import IonIcon from '@/components/IonIcon.vue'
 import ArchiveBackBar from '@/components/ArchiveBackBar.vue'
 import { trackRecentAccess } from '@/utils/recentAccess'
+import { refreshWorkspace } from '@/composables/workspaceNav'
 
 const IconPicker = defineAsyncComponent(() => import('@/components/IconPicker.vue'))
 
@@ -282,7 +283,7 @@ function confirmDeleteCurrentNote() {
   const noteId = activeNoteId.value
   dialog.warning({
     title: '删除笔记',
-    content: '该笔记及其子笔记将移到回收站。',
+    content: '这篇笔记会移到回收站。',
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {
@@ -290,6 +291,7 @@ function confirmDeleteCurrentNote() {
         await notesApi.deleteNote(noteId)
         queryClient.invalidateQueries({ queryKey: ['notes', 'tree'] })
         queryClient.invalidateQueries({ queryKey: ['notes-trash'], exact: false })
+        await refreshWorkspace(queryClient)
         await switchToNote(null)
         message.success('笔记已移到回收站')
       } catch (err) {

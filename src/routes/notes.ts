@@ -673,6 +673,9 @@ notes.delete('/:id', requireWriteMiddleware, async (c) => {
   })
 
   await c.env.DB.batch(stmts)
+  for (const noteId of allIds) {
+    await removeNodeByRef(c.env.DB, 'note', noteId)
+  }
 
   return c.json({ data: { success: true } })
 })

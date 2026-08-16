@@ -71,6 +71,7 @@
             @rename="openRenameModal"
             @move="onManageMove"
             @delete-folder="onDeleteFolder"
+            @delete="onDeleteLeaf"
             @archive="onArchiveNode"
             @change-icon="openFolderIconPicker"
             @reorder="handleWorkspaceReorder"
@@ -400,6 +401,39 @@ function onArchiveNode(node: WorkspaceNode) {
         await refreshWorkspace(queryClient)
         queryClient.invalidateQueries({ queryKey: ['workspace', 'archived'] })
         message.success('已收入归档架')
+      } catch (err) {
+        message.error((err as Error).message)
+      }
+    },
+  })
+}
+
+function onDeleteLeaf(node: WorkspaceNode) {
+  const ref = node.ref || (node.id.includes('::') ? node.id.slice(0, node.id.indexOf('::')) : node.id)
+  const tableName = node.kind === 'table' ? (node.ref || ref.replace(/^wn_t_/, '')) : ''
+  const noteId = node.kind === 'note' ? (node.ref || '') : ''
+  if (node.kind === 'table' && !tableName) return
+  if (node.kind === 'note' && !noteId) return
+
+  dialog.warning({
+    title: node.kind === 'table' ? '删除表格' : '删除笔记',
+    content: node.kind === 'table'
+      ? `删除「${node.title || '未命名'}」？整张表和记录会移到回收站。`
+      : `删除「${node.title || '未命名'}」？笔记会移到回收站。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        if (node.kind === 'table') {
+          await api.deleteTable(tableName)
+          if (route.params.tableName === tableName) router.push('/')
+        } else {
+          await notesApi.deleteNote(noteId)
+          if (route.params.noteId === noteId) router.push('/')
+        }
+        await refreshWorkspace(queryClient)
+        queryClient.invalidateQueries({ queryKey: ['notes-trash'], exact: false })
+        message.success(node.kind === 'table' ? '表格已移到回收站' : '笔记已移到回收站')
       } catch (err) {
         message.error((err as Error).message)
       }
@@ -876,7 +910,7 @@ async function createNewNote() {
 function archiveNote(noteId: string) {
   dialog.warning({
     title: '归档笔记',
-    content: '归档这篇笔记及其子页面？可在归档中恢复。',
+    content: '归档这篇笔记？可在归档架中恢复。',
     positiveText: '归档',
     negativeText: '取消',
     onPositiveClick: async () => {
