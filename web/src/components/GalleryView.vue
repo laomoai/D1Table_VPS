@@ -159,6 +159,7 @@
     v-model:show="showForm"
     :fields="fields"
     :record="editingRecord"
+    :table-name="tableName"
     @submit="handleFormSubmit"
   />
 

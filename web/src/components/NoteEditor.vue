@@ -21,6 +21,10 @@
         </button>
       </div>
       <div class="bar-actions">
+        <button class="bar-btn" title="插入图片" :disabled="uploadingImage" @click="triggerImagePicker">
+          <IonIcon name="ImageOutline" :size="14" />
+          <span class="bar-btn-label">{{ uploadingImage ? '上传中' : '图片' }}</span>
+        </button>
         <button class="bar-btn" title="插入表格引用" @click="emit('insert-table-ref')">
           <IonIcon name="GridOutline" :size="14" />
           <span class="bar-btn-label">表格</span>
@@ -43,6 +47,7 @@
         <span class="bar-stat">{{ wordCount }} 词</span>
       </div>
       <input ref="appendFileInput" type="file" accept=".md,.markdown,.txt" style="display:none" @change="handleAppendImport" />
+      <input ref="imageFileInput" type="file" accept="image/*" style="display:none" @change="handleImageFile" />
     </div>
 
     <!-- Content area -->
@@ -69,14 +74,18 @@ import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@cod
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
 import DOMPurify from 'dompurify'
 import { renderMarkdown } from '@/utils/markdown'
+import { compressImage } from '@/utils/compressImage'
+import { api } from '@/api/client'
 import IonIcon from './IonIcon.vue'
 
 const props = withDefaults(defineProps<{
   modelValue?: string
   editable?: boolean
+  noteId?: string | null
 }>(), {
   modelValue: '',
   editable: true,
+  noteId: null,
 })
 
 const emit = defineEmits<{
@@ -88,6 +97,8 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const appendFileInput = ref<HTMLInputElement | null>(null)
+const imageFileInput = ref<HTMLInputElement | null>(null)
+const uploadingImage = ref(false)
 
 const editorContainer = ref<HTMLElement | null>(null)
 const editorView = shallowRef<EditorView | null>(null)
@@ -182,6 +193,23 @@ function createEditor() {
 
   const blurHandler = EditorView.domEventHandlers({
     blur() { emit('blur') },
+    paste(event, view) {
+      const file = Array.from((event as ClipboardEvent).clipboardData?.items ?? [])
+        .find((i) => i.type.startsWith('image/'))
+        ?.getAsFile()
+      if (!file || !props.editable) return false
+      event.preventDefault()
+      void insertImageFile(file, view)
+      return true
+    },
+    drop(event, view) {
+      const file = Array.from((event as DragEvent).dataTransfer?.files ?? [])
+        .find((f) => f.type.startsWith('image/'))
+      if (!file || !props.editable) return false
+      event.preventDefault()
+      void insertImageFile(file, view)
+      return true
+    },
   })
 
   const state = EditorState.create({
@@ -247,6 +275,49 @@ function handlePreviewClick(e: MouseEvent) {
   if (href.startsWith('/') && !href.startsWith('//')) {
     e.preventDefault()
     router.push(href)
+  }
+}
+
+function triggerImagePicker() {
+  if (!props.editable || uploadingImage.value) return
+  if (imageFileInput.value) {
+    imageFileInput.value.value = ''
+    imageFileInput.value.click()
+  }
+}
+
+async function handleImageFile(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (file) await insertImageFile(file)
+}
+
+function insertMarkdown(md: string, view?: EditorView) {
+  const ed = view ?? editorView.value
+  if (!ed) return
+  const pos = ed.state.selection.main.head
+  const prefix = pos > 0 && ed.state.doc.sliceString(Math.max(0, pos - 1), pos) !== '\n' ? '\n\n' : ''
+  ed.dispatch({
+    changes: { from: pos, insert: prefix + md + '\n\n' },
+    selection: { anchor: pos + prefix.length + md.length + 2 },
+  })
+  ed.focus()
+}
+
+async function insertImageFile(file: File, view?: EditorView) {
+  if (uploadingImage.value) return
+  uploadingImage.value = true
+  try {
+    const { thumb, display } = await compressImage(file)
+    const result = await api.uploadImage(thumb, display, file.name, {
+      kind: props.noteId ? 'note' : 'none',
+      id: props.noteId,
+    })
+    const alt = (file.name || '图片').replace(/[[\]]/g, '')
+    insertMarkdown(`![${alt}](/api/files/${result.display})`, view)
+  } catch (err) {
+    console.error('Image upload failed:', err)
+  } finally {
+    uploadingImage.value = false
   }
 }
 

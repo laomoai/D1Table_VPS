@@ -20,6 +20,7 @@ import administrationRouter from './routes/administration'
 import avatarsRouter from './routes/avatars'
 import workspaceRouter from './routes/workspace'
 import assistantRouter from './routes/assistant'
+import filesRouter from './routes/files'
 
 const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -63,9 +64,14 @@ app.route('/api/avatars', avatarsRouter)
 // ── 需要认证的路由 ─────────────────────────────────────────────
 app.use('/api/*', async (c, next) => {
   await next()
-  c.header('Cache-Control', 'no-store')
+  if (!c.req.path.startsWith('/api/files')) {
+    c.header('Cache-Control', 'no-store')
+  }
 })
-app.use('/api/*', authMiddleware)
+app.use('/api/*', async (c, next) => {
+  if (c.req.path.startsWith('/api/files')) return next()
+  return authMiddleware(c, next)
+})
 // 不再缓存：表列表用了 COUNT(*)，需要实时；表结构极少变更但也不值得缓存的复杂度
 
 // 表访问控制：scope=groups 的 Key 只能访问关联分组内的表
@@ -86,18 +92,7 @@ app.route('/api/notes', notesRouter)
 app.route('/api/teams', teamsRouter)
 app.route('/api/workspace', workspaceRouter)
 app.route('/api/assistant', assistantRouter)
-
-// GET /api/files/* — 从 R2 代理图片（鉴权后才可访问）
-app.get('/api/files/*', async (c) => {
-  const key = c.req.path.replace('/api/files/', '')
-  if (!key) return c.json({ error: { message: 'Missing key' } }, 400)
-  const obj = await c.env.BUCKET.get(key)
-  if (!obj) return c.json({ error: { message: 'Not found' } }, 404)
-  const headers = new Headers()
-  obj.writeHttpMetadata(headers)
-  headers.set('Cache-Control', 'public, max-age=31536000, immutable')
-  return new Response(obj.body as BodyInit, { headers })
-})
+app.route('/api/files', filesRouter)
 
 export { app }
 

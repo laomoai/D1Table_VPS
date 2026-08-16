@@ -186,6 +186,7 @@
         <ImageUpload
           v-else-if="field.field_type === 'image'"
           :value="(formData[field.column_name] as string) ?? null"
+          :table-name="tableName"
           @update:value="(v) => formData[field.column_name] = v"
         />
 
@@ -230,6 +231,7 @@ const formRef = ref<FormInst>()
 const props = defineProps<{
   fields: FieldMeta[]
   record?: RecordRow | null
+  tableName?: string
 }>()
 
 const emit = defineEmits<{

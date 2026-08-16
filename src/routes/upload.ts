@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import type { Env, AuthVariables } from '../types'
+import { registerFile, type FileRefKind } from '../utils/files'
 
 const upload = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
-// POST /api/upload/image — 接收 thumb + display 两个 Blob，存入 R2
 upload.post('/image', async (c) => {
   if (c.get('keyType') === 'readonly') {
     return c.json({ error: { message: 'Read-only key cannot upload files' } }, 403)
@@ -13,12 +13,14 @@ upload.post('/image', async (c) => {
   const thumb = form.get('thumb') as File | null
   const display = form.get('display') as File | null
   const name = (form.get('name') as string | null) ?? 'image'
+  const refKindRaw = String(form.get('ref_kind') || 'none')
+  const refKind: FileRefKind = refKindRaw === 'table' || refKindRaw === 'note' ? refKindRaw : 'none'
+  const refId = String(form.get('ref_id') || '').trim() || null
 
   if (!thumb || !display) {
     return c.json({ error: { message: 'Missing thumb or display' } }, 400)
   }
 
-  // 用 crypto.randomUUID() 生成唯一路径
   const uuid = crypto.randomUUID()
   const thumbKey = `images/${uuid}/thumb.webp`
   const displayKey = `images/${uuid}/display.webp`
@@ -31,6 +33,11 @@ upload.post('/image', async (c) => {
       httpMetadata: { contentType: 'image/webp' },
     }),
   ])
+
+  const ownerId = c.get('userId') ?? null
+  const teamId = c.get('teamId') ?? null
+  await registerFile(c.env.DB, { storageKey: thumbKey, ownerId, teamId, refKind, refId })
+  await registerFile(c.env.DB, { storageKey: displayKey, ownerId, teamId, refKind, refId })
 
   return c.json({
     data: { thumb: thumbKey, display: displayKey, name, size: display.size },

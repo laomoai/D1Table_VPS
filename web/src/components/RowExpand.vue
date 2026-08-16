@@ -50,6 +50,7 @@
             <template v-else-if="field.field_type === 'image'">
               <ImageUpload
                 :value="(currentRow[field.column_name] as string) ?? null"
+                :table-name="tableName"
                 @update:value="(v) => saveField(field.column_name, v)"
                 style="width:100%"
               />

@@ -203,11 +203,18 @@ export const api = {
     http.delete(`/admin/keys/${id}/permanent`),
 
   /** 图片上传 */
-  uploadImage: async (thumb: Blob, display: Blob, name: string): Promise<ImageValue> => {
+  uploadImage: async (
+    thumb: Blob,
+    display: Blob,
+    name: string,
+    ref?: { kind?: 'table' | 'note' | 'none'; id?: string | null },
+  ): Promise<ImageValue> => {
     const form = new FormData()
     form.append('thumb', thumb, 'thumb.webp')
     form.append('display', display, 'display.webp')
     form.append('name', name)
+    if (ref?.kind) form.append('ref_kind', ref.kind)
+    if (ref?.id) form.append('ref_id', ref.id)
     const res = await http.post<{ data: ImageValue }>('/upload/image', form)
     return res.data.data
   },

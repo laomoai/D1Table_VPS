@@ -161,6 +161,7 @@
     v-model:show="showForm"
     :fields="fields"
     :record="null"
+    :table-name="tableName"
     @submit="handleFormSubmit"
   />
 

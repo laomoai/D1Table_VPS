@@ -39,6 +39,7 @@
           ref="noteEditorRef"
           v-model="noteContent"
           :editable="!noteFrozen"
+          :note-id="activeNoteId"
           @blur="saveContent"
           @export="exportCurrentNote"
           @insert-table-ref="showTablePicker = true"
