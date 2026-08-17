@@ -1,13 +1,21 @@
 <template>
   <n-drawer
     v-model:show="visible"
-    :width="drawerWidth"
-    placement="right"
+    :width="narrow ? '100%' : drawerWidth"
+    :height="narrow ? '100%' : undefined"
+    :placement="narrow ? 'bottom' : 'right'"
+    :class="{ 'row-expand--full': narrow }"
     @after-leave="onClose"
   >
-    <n-drawer-content :native-scrollbar="false">
+    <n-drawer-content :native-scrollbar="false" :closable="!narrow">
       <template #header>
-        <div class="expand-header">
+        <div class="expand-header" :class="{ compact: narrow }">
+          <button
+            v-if="narrow"
+            type="button"
+            class="expand-back"
+            @click="visible = false"
+          >返回</button>
           <span class="expand-id">ID: {{ currentRow?.id ?? '—' }}</span>
           <button
             v-if="browseOnly && currentRow?.id != null"
@@ -16,25 +24,25 @@
             @click="askToEdit"
           >让助手改这条</button>
           <div class="expand-nav">
-            <button class="copy-record-btn" :class="{ copied: recordCopied }" @click="copyRecord" :title="recordCopied ? 'Copied!' : 'Copy record'">
+            <button class="copy-record-btn" :class="{ copied: recordCopied }" @click="copyRecord" :title="recordCopied ? '已复制' : '复制记录'">
               {{ recordCopied ? '✓' : '⎘' }}
             </button>
-            <div class="font-size-switcher">
+            <div v-if="!narrow" class="font-size-switcher">
               <button class="fs-btn" :class="{ active: fontSize === 'small' }" @click="setFontSize('small')" title="Small">A</button>
               <button class="fs-btn fs-btn--md" :class="{ active: fontSize === 'medium' }" @click="setFontSize('medium')" title="Medium">A</button>
               <button class="fs-btn fs-btn--lg" :class="{ active: fontSize === 'large' }" @click="setFontSize('large')" title="Large">A</button>
             </div>
             <n-button size="small" quaternary :disabled="currentIndex < 0 || currentIndex <= 0" @click="navigate(-1)">
-              ← Previous
+              {{ narrow ? '上一条' : '← Previous' }}
             </n-button>
             <n-button size="small" quaternary :disabled="currentIndex < 0 || currentIndex >= allRows.length - 1" @click="navigate(1)">
-              Next →
+              {{ narrow ? '下一条' : 'Next →' }}
             </n-button>
           </div>
         </div>
       </template>
 
-      <div v-if="currentRow" class="expand-fields" :class="`fs-${fontSize}`">
+      <div v-if="currentRow" class="expand-fields" :class="[`fs-${fontSize}`, { stacked: narrow }]">
         <div v-for="field in visibleFields" :key="field.column_name" class="expand-field-row">
           <div class="expand-field-label">
             <span class="field-icon-sm" :style="{ color: typeColor(field.field_type) }">
@@ -422,6 +430,7 @@ import { navigateToLinkedRecord } from '@/utils/recordNavigation'
 import { openNotePreview } from '@/utils/notePreview'
 import { copyText } from '@/utils/clipboard'
 import { askAssistant } from '@/composables/assistantAsk'
+import { useNarrow } from '@/composables/useNarrow'
 import { useNoteTree, type NoteTreeNode } from '@/utils/useNoteTree'
 
 const props = defineProps<{
@@ -435,6 +444,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ refresh: [] }>()
 const visible = defineModel<boolean>('show', { default: false })
+const narrow = useNarrow()
 
 const message = useMessage()
 const queryClient = useQueryClient()
@@ -523,9 +533,11 @@ function setFontSize(size: FontSize) {
   localStorage.setItem('d1table_detail_font_size', size)
 }
 
-// ── 抽屉宽度：50vw，最小 480px ──────────────────────────────
+// ── 电脑右侧半屏；手机用 100% 高度底部全屏 ──────────────────
 const drawerWidth = ref(Math.max(480, window.innerWidth * 0.5))
-function updateDrawerWidth() { drawerWidth.value = Math.max(480, window.innerWidth * 0.5) }
+function updateDrawerWidth() {
+  drawerWidth.value = Math.max(480, window.innerWidth * 0.5)
+}
 onMounted(() => window.addEventListener('resize', updateDrawerWidth))
 
 // ── 长文本折叠 ───────────────────────────────────────────────
@@ -861,7 +873,24 @@ function typeColor(type: FieldType): string {
   justify-content: space-between;
   width: 100%;
 }
+.expand-header.compact {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.expand-header.compact .expand-nav {
+  width: 100%;
+  justify-content: flex-end;
+}
 .expand-id { font-size: 14px; font-weight: 600; color: #555; }
+.expand-back {
+  border: 0;
+  background: transparent;
+  color: #37352f;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 4px 8px 4px 0;
+  margin-right: 4px;
+}
 .ask-asst-btn {
   margin-left: 10px;
   border: 0;
@@ -931,6 +960,10 @@ function typeColor(type: FieldType): string {
   gap: 12px;
   padding: 8px 0;
   border-bottom: 1px solid #f0f2f5;
+}
+.expand-fields.stacked .expand-field-row {
+  grid-template-columns: 1fr;
+  gap: 4px;
 }
 .expand-field-label {
   display: flex;
@@ -1139,4 +1172,12 @@ function typeColor(type: FieldType): string {
 .np-arrow-ph { width: 14px; flex-shrink: 0; }
 .np-icon { font-size: 14px; flex-shrink: 0; }
 .np-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+<style>
+.n-drawer.row-expand--full {
+  max-width: 100vw !important;
+  height: 100% !important;
+  max-height: 100dvh !important;
+}
 </style>

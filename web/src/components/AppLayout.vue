@@ -1078,6 +1078,8 @@ async function logout() {
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
+  padding-top: var(--net-banner-h, 0px);
+  box-sizing: border-box;
 }
 .app-layout.narrow {
   flex-direction: column;
@@ -1138,12 +1140,12 @@ async function logout() {
 }
 .app-layout.narrow .sidebar {
   position: fixed;
-  top: 0;
+  top: var(--net-banner-h, 0px);
   left: 0;
   width: min(84vw, 320px);
   max-width: 320px;
   min-width: 0;
-  height: 100dvh;
+  height: calc(100dvh - var(--net-banner-h, 0px));
   z-index: 50;
   transform: translateX(-105%);
   transition: transform 0.2s ease;

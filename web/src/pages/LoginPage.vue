@@ -143,6 +143,7 @@ async function sendReset() {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #f5f7ff 0%, #e8ecff 100%);
+  padding-top: var(--net-banner-h, 0px);
 }
 .login-card {
   width: 400px;

@@ -8,7 +8,17 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.svg', 'logo.png', 'favicon-32.png', 'icons/apple-touch-180.png'],
+      includeAssets: [
+        'logo.svg',
+        'logo.png',
+        'favicon-32.png',
+        'icons/apple-touch-180.png',
+        'icons/apple-splash-1170x2532.png',
+        'icons/apple-splash-1290x2796.png',
+        'icons/apple-splash-1284x2778.png',
+        'icons/apple-splash-828x1792.png',
+        'icons/apple-splash-750x1334.png',
+      ],
       manifest: {
         name: '墨问',
         short_name: '墨问',
@@ -17,12 +27,13 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#ffffff',
+        background_color: '#f7f7f5',
         theme_color: '#f7f7f5',
         icons: [
-          { src: '/icons/pwa-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/pwa-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icons/splash-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/splash-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icons/splash-1024.png', sizes: '1024x1024', type: 'image/png', purpose: 'any' },
+          { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

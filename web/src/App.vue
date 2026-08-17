@@ -2,6 +2,9 @@
   <n-config-provider class="app-root" :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <n-dialog-provider>
+        <div v-if="!reachable" class="net-banner" role="status">
+          当前无法联网。表格和笔记不能刷新，AI 助手也不可用。
+        </div>
         <router-view />
       </n-dialog-provider>
     </n-message-provider>
@@ -9,7 +12,17 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import { NConfigProvider, NMessageProvider, NDialogProvider, zhCN, dateZhCN } from 'naive-ui'
+import { useNetwork } from '@/composables/useNetwork'
+
+const { reachable } = useNetwork()
+watch(reachable, (ok) => {
+  document.documentElement.style.setProperty(
+    '--net-banner-h',
+    ok ? '0px' : 'calc(40px + env(safe-area-inset-top))',
+  )
+}, { immediate: true })
 
 const themeOverrides = {
   common: {
@@ -79,5 +92,22 @@ const themeOverrides = {
 .app-root .n-dialog-provider {
   height: 100%;
   min-height: 100%;
+}
+.net-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 8px 14px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+  background: #7a1f1f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
 }
 </style>
